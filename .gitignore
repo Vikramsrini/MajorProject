@@ -26,5 +26,6 @@ dist/
 *.swp
 
 # generated figures
-*.pdf
+
+
 figures/

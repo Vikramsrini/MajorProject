@@ -29,6 +29,68 @@ class Matcher(Protocol):
     def score(self, pairs: pd.DataFrame) -> np.ndarray: ...
 
 
+class WordCooccurrenceMatcher:
+    """Word co-occurrence + LinearSVC - the published symbolic baseline.
+
+    The WDC Products paper reports this simple model (binary word co-occurrence
+    features, grid-searched LinearSVC) at F1 52.66 on the medium/80%-corner-case/
+    seen split. Implementing it is therefore a *protocol check*: if this pipeline
+    cannot reach a published number for a baseline that trivially sits in the
+    same table, the serialisation or split handling is wrong, and every other row
+    in our tables inherits that doubt.
+    """
+
+    def __init__(self, ds: Dataset, n_features: int = 1 << 16) -> None:
+        from sklearn.feature_extraction.text import HashingVectorizer
+
+        self.ds = ds
+        # norm=None + explicit binarisation: the published baseline is a *binary*
+        # word co-occurrence model, so an L2-normalised count vector would
+        # silently change the feature semantics. (`alternate_norm` is gone from
+        # current sklearn; norm=None is the supported way to get raw counts.)
+        self.vec = HashingVectorizer(
+            n_features=n_features, norm=None, token_pattern=r"[a-z0-9]+"
+        )
+        self._est = None
+
+    def bind(self, ds: Dataset) -> WordCooccurrenceMatcher:
+        self.ds = ds
+        return self
+
+    @staticmethod
+    def _binary(mat):
+        from scipy import sparse
+
+        m = mat.tocsr(copy=True)
+        m.data = np.ones_like(m.data)
+        m.eliminate_zeros()
+        return m
+
+    def _x(self, pairs: pd.DataFrame):
+        texts = self.ds.df.set_index(self.ds.df["record_id"].astype(str))["text"].astype(str)
+        la = texts.reindex(pairs["record_id_l"].astype(str)).to_numpy()
+        rb = texts.reindex(pairs["record_id_r"].astype(str)).to_numpy()
+        A = self._binary(self.vec.transform([str(t) for t in la]))
+        B = self._binary(self.vec.transform([str(t) for t in rb]))
+        # co-occurrence = elementwise product of the two binary occurrence vectors
+        return A.multiply(B).tocsr()
+
+    def fit(self, train: PairTable) -> WordCooccurrenceMatcher:
+        from sklearn.svm import LinearSVC
+
+        df = train.labeled.frame
+        X = self._x(df)
+        y = df["label"].astype(int).to_numpy()
+        self._est = LinearSVC(class_weight="balanced", max_iter=3000)
+        self._est.fit(X, y)
+        return self
+
+    def score(self, pairs: pd.DataFrame) -> np.ndarray:
+        assert self._est is not None, "call fit() first"
+        d = self._est.decision_function(self._x(pairs))
+        return 1.0 / (1.0 + np.exp(-d))  # squashed for a common [0,1] protocol
+
+
 class SimilarityMatcher:
     """Threshold on a single normalized string similarity (the no-ML baseline).
 

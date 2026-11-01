@@ -1,0 +1,13 @@
+records=3496  train=6000 valid=3500 test=4500 test_positives=500 test_hard_negatives=3000
+embeddings: (3496, 384)
+  s1_similarity_tokenset         F1=0.3372 P=0.2560 R=0.4940 AUC-PR=0.2709 P@R50=0.2556
+  s1b_similarity_jaro            F1=0.2121 P=0.1426 R=0.4140 AUC-PR=0.1449 P@R50=0.1459
+  s1c_wordcooc_svm               F1=0.5152 P=0.5226 R=0.5080 AUC-PR=0.4766 P@R50=0.5353
+  warning: s1d_wordcooc_constraint: no ceiling in [0.05, 0.15, 0.25, 0.35, 0.45] binds at its operating point (the recall floor forces capped pairs back in)
+  s1d_wordcooc_constraint        F1=0.4835 P=0.3727 R=0.6880 AUC-PR=0.4447 P@R50=0.3727 vetoed=596 vetoP=0.691
+  s2_classifier_nofeatattr       F1=0.3532 P=0.2988 R=0.4320 AUC-PR=0.3229 P@R50=0.2828
+  s3_classifier_featattr         F1=0.3690 P=0.3267 R=0.4240 AUC-PR=0.3539 P@R50=0.2931
+  warning: s4a_typed_veto_asym: no ceiling in [0.05, 0.15, 0.25, 0.35, 0.45] binds at its operating point (the recall floor forces capped pairs back in)
+  s4a_typed_veto_asym            F1=0.3690 P=0.3267 R=0.4240 AUC-PR=0.3467 P@R50=0.2931 vetoed=273 vetoP=0.696
+  warning: s4b_typed_veto_sym: no ceiling in [0.05, 0.15, 0.25, 0.35, 0.45] binds at its operating point (the recall floor forces capped pairs back in)
+  s4b_typed_veto_sym             F1=0.3690 P=0.3267 R=0.4240 AUC-PR=0.3478 P@R50=0.2931 vetoed=63 vetoP=0.619

@@ -26,20 +26,29 @@ A system that fixes Case A by loosening thresholds breaks Case B. That tension i
 
 ## 2. Contributions (as measured, not as hoped)
 
-1. **Pairwise-vs-entity operating-point mismatch.** The threshold that maximises *pairwise* F1 is far
+1. **Protocol validated against the benchmark's own published baseline.** Our Word co-occurrence +
+   LinearSVC reproduces the WDC Products paper's F1 52.66 as **51.52** on the same split, which makes the
+   rest of our tables comparable to published numbers. It also shows our feature classifier (36.90) sits
+   *below* that baseline, so no state-of-the-art claim is made anywhere in this project.
+2. **Pairwise-vs-entity operating-point mismatch.** The threshold that maximises *pairwise* F1 is far
    from the one that maximises *entity-level* F1, because one wrong bridge edge merges two whole
-   clusters while pairwise metrics charge it once. Quantified on WDC Products across the unseen-
-   product dimension. Standard ER reporting hides this.
-2. **Attribute- and specifier-constrained scoring.** A hard-constraint layer that caps a pair's score
-   when the two records state contradictory identity attributes (brand, model family, variant,
-   capacity, quantity) or contradictory unit-qualified numeric specifiers (`50mm` vs `85mm`,
-   `f/1.4` vs `f/1.8`, `st4000ne001` vs `st6000ne001`). Report includes **veto precision** - how often
-   the constraint blocks a genuine match - which the literature rarely publishes.
-3. **Calibrated, selective resolution.** Temperature-scaled match probabilities, quantile-binned ECE,
-   and an accept/review/reject band whose cost is reported as reviewer workload rather than as a free
-   accuracy win.
-4. **A reproducible, honest toolkit** with fixed splits, dataset fingerprints on every result row,
-   label-noise awareness, and negative results written down.
+   clusters while pairwise metrics charge it once. Measured: entity F1 **0.108** with a 50-record mega-cluster
+   at the pairwise-optimal threshold, versus **0.262** at the entity-optimal threshold. Standard ER
+   reporting hides this.
+3. **Attribute- and specifier-constrained scoring - measured and mostly refuted as a hard veto.** The
+   constraint layer caps a pair's score when records state contradictory identity attributes (brand, model
+   family, variant, capacity, quantity) or contradictory unit-qualified numeric specifiers (`50mm` vs
+   `85mm`, `f/1.4` vs `f/1.8`). Reported with **veto precision** (how often it blocks a genuine match), which
+   the literature rarely publishes. Result: at a fixed operating point it moves precision by **+0.5 points**,
+   because every recall-respecting threshold re-admits the capped pairs - the constraint cancels itself. As
+   *soft features* the same evidence does help (AP 0.323 → 0.354).
+4. **Calibrated, selective resolution.** Raw similarity is nowhere near calibrated (ECE **0.39** for
+   token-set/Jaro-Winkler, versus 0.07-0.12 for trained matchers after temperature scaling), which is the
+   strongest justification in this project for treating confidence as a first-class output. The
+   accept/review/reject band is tied to the actual operating point, so its cost is reviewer workload, not a
+   free accuracy win.
+5. **A reproducible, honest toolkit** with fixed splits, dataset fingerprints on every result row, 39 tests,
+   and negative results written down in `docs/FINDINGS.md` rather than deleted.
 
 ## 3. Layout
 
@@ -50,10 +59,10 @@ src/er/
   blocking.py       token / prefix / sorted-neighbourhood / MinHash-LSH / FAISS candidate generation
   features.py       fuzz + token + attribute + numeric + embedding feature families
   models/
-    baselines.py    SimilarityMatcher, ClassifierMatcher (HistGradientBoosting / logistic)
+    baselines.py    SimilarityMatcher, ClassifierMatcher (GBDT/logistic), WordCooccurrenceMatcher
     encoders.py     Sentence Transformer bi-encoder with disk-cached embeddings
     attribute.py    AttributeConstrainedMatcher - the hard-constraint layer
-  metrics.py        pairwise micro P/R/F1, AP, ROC-AUC, Recall@K, BCubed, entity-pairwise F1
+  metrics.py        pairwise micro P/R/F1, AP, ROC-AUC, precision@recall, Recall@K, BCubed, entity F1
   calibration.py    ECE, Brier, reliability table, temperature scaling, selective-report
   clustering.py     union-find, gated transitive cleanup (reproduction, not novelty)
   experiment.py     fit -> calibrate -> evaluate with slices, veto diagnostics, clustering sweep
@@ -61,9 +70,11 @@ src/er/
 scripts/
   download_wdc.py   fetch the benchmark (verified URLs)
   run_wdc.py        the main experiment: system sweep + slices + clustering sweep
+  run_blocking.py   blocking Pareto: pair recall vs comparisons, catalog-wide gold
+  make_figures.py   paper figures, generated only from the CSVs above
 tests/
-  test_core.py      38 unit tests on the correctness-critical primitives
-  test_wdc_io.py    integration tests re-checking counts against the benchmark paper
+  test_core.py      33 unit tests on the correctness-critical primitives
+  test_wdc_io.py    6 integration tests re-checking counts against the benchmark paper
 docs/
   LITERATURE_SURVEY.md  2023-2026 only, every citation URL-resolved, plus negative results
   DATASETS.md           dataset/licence audit and why multimodal was dropped

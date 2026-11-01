@@ -303,6 +303,31 @@ def test_entity_f1_penalizes_single_bad_merge():
 # --------------------------------------------------------------------------- #
 # calibration
 # --------------------------------------------------------------------------- #
+def test_operating_point_prefers_strictest_cut_on_ties():
+    """Guards the degenerate "accept everything" solution.
+
+    When a constraint caps most positives to the same score, every feasible cut
+    sits at the base rate; a recall-leaning tie-break then selects the loosest
+    possible threshold (R=1.0, P=pi), which is not a decision at all.
+    """
+    from er.metrics import select_operating_point
+
+    frame = pair_frame([("a", "b"), ("c", "d"), ("e", "f"), ("g", "h")])
+    frame["label"] = [1, 0, 0, 0]
+    frame["score"] = [0.3, 0.3, 0.3, 0.9]  # three capped pairs
+    t, m = select_operating_point(PairTable(frame), min_recall=0.5)
+    # both t=0.0 and t=0.3 give the same precision; the rule must pick the strictest
+    assert abs(t - 0.3) < 1e-9, f"expected the strictest tied cut 0.3, got {t}"
+    assert m["recall"] >= 0.5 - 1e-9
+    # the strictest cut achieving the floor accepts the 0.9 pair and the 0.3 block
+    assert m["rule"].startswith("max_precision")
+
+    # an unlabeled table yields nothing rather than a fabricated decision
+    bare = PairTable(pair_frame([("a", "b")]))
+    t3, m3 = select_operating_point(bare, min_recall=0.5)
+    assert m3 == {}
+
+
 def test_ece_zero_for_perfect_calibration():
     """A score equal to the empirical positive rate in every bin must give ECE 0."""
     probs, labels = [], []

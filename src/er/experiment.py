@@ -22,17 +22,23 @@ fingerprint and git-style config dump for provenance.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import average_precision_score
 
 from .calibration import brier_score, expected_calibration_error, reliability_table, temperature_scale, selective_report
 from .clustering import cluster_stats, connected_components
 from .features import build_features
-from .metrics import best_threshold, pairwise_metrics, precision_at_recall
+from .metrics import (
+    pairwise_metrics,
+    precision_at_recall,
+    select_operating_point,
+)
 from .models.attribute import AttributeConstrainedMatcher, HARD_ATTRIBUTES
 from .preprocess import DEFAULT_LEXICON, AttributeLexicon
 from .schema import Dataset, PairTable
@@ -71,6 +77,10 @@ def build_matcher(spec: SystemSpec, ds: Dataset, lexicon: AttributeLexicon, embe
 
         m = SimilarityMatcher(metric=spec.base.get("metric", "token_set"))
         m = m.bind(ds)
+    elif spec.kind == "wordcooc":
+        from .models.baselines import WordCooccurrenceMatcher
+
+        m = WordCooccurrenceMatcher(ds)
     elif spec.kind == "classifier":
         from .models.baselines import ClassifierMatcher
 
@@ -111,8 +121,10 @@ def run_system(
     test: PairTable,
     lexicon: AttributeLexicon = DEFAULT_LEXICON,
     embeddings: np.ndarray | None = None,
-    review_band: tuple[float, float] = (0.35, 0.65),
+    review_band: tuple[float, float] | None = None,
+    review_delta: float = 0.10,
     ref_threshold: float | None = None,
+    min_recall: float = 0.5,
 ) -> tuple[list[dict], PairTable]:
     """Fit, calibrate and evaluate one system; returns tidy rows + scored test pairs.
 
@@ -129,13 +141,58 @@ def run_system(
     matcher = build_matcher(spec, ds, lexicon, embeddings)
     matcher.fit(train)
 
-    # --- calibration on VALID only ------------------------------------------
-    s_valid_raw = np.asarray(matcher.score(valid.labeled.frame), dtype=float)
+    # --- operating point + calibration, chosen on VALID only ----------------
+    # A hard constraint's benefit is invisible at an F1-optimal threshold,
+    # because the threshold slides down and reads comparable noise back in. All
+    # systems therefore use the same precision-forward rule (maximise precision
+    # subject to recall >= min_recall), and the veto ceiling is tuned rather than
+    # hard-coded. Neither the threshold nor the ceiling touches test data.
     y_valid = valid.labeled.frame["label"].astype(int).to_numpy()
-    temp = temperature_scale(_logit(s_valid_raw), y_valid) if len(s_valid_raw) else 1.0
-    val_scores = _sigmoid(_logit(s_valid_raw), temp)
-    # operating point chosen on calibrated VALID scores, never on test data
-    chosen = float(best_threshold(valid.join_scores(scores=val_scores), metric="f1")["threshold"])
+    ceiling_used = None
+    n_effective_valid = None
+    valid_op: dict[str, float] = {}
+    if spec.constraints and hasattr(matcher, "ceiling"):
+        base_valid = np.asarray(matcher.base.score(valid.labeled.frame), dtype=float)  # type: ignore[attr-defined]
+        grid = list(spec.constraints.get("ceiling_grid", [0.05, 0.15, 0.25, 0.35, 0.45]))
+        trials = []
+        for c in grid:
+            capped = np.minimum(base_valid, c)
+            t_c = temperature_scale(_logit(capped), y_valid) if len(capped) else 1.0
+            cal = _sigmoid(_logit(capped), t_c)
+            thr, vm = select_operating_point(valid.join_scores(scores=cal), min_recall=min_recall)
+            if not vm or thr != thr:
+                continue
+            # Count pairs the cap actually moves across the boundary. An inert
+            # ceiling would otherwise win by being indistinguishable from the
+            # unconstrained system, and the table would describe no constraint.
+            uncapped = _sigmoid(_logit(base_valid), t_c)
+            effective = int(((cal < thr) & (uncapped >= thr)).sum())
+            ap = average_precision_score(y_valid, cal)
+            trials.append((ap, float(c), float(thr), t_c, effective, vm))
+        if not trials:
+            raise RuntimeError("no ceiling candidate produced a usable operating point")
+        # Rank by a threshold-free criterion (valid AP), preferring ceilings that
+        # bind; operating-point metrics are reported separately, not used to rank.
+        best_ap = max(t[0] for t in trials)
+        cands = [t for t in trials if abs(t[0] - best_ap) < 1e-12]
+        binding = [t for t in cands if t[4] > 0]
+        ap, ceiling_used, chosen, temp, n_effective_valid, valid_op = max(
+            binding or cands, key=lambda x: x[4]
+        )
+        if not binding:
+            print(
+                f"  warning: {spec.name}: no ceiling in {grid} binds at its operating point "
+                f"(the recall floor forces capped pairs back in)",
+                file=sys.stderr,
+            )
+        matcher.ceiling = ceiling_used
+        s_valid_raw = np.minimum(base_valid, ceiling_used)
+    else:
+        s_valid_raw = np.asarray(matcher.score(valid.labeled.frame), dtype=float)
+        temp = temperature_scale(_logit(s_valid_raw), y_valid) if len(s_valid_raw) else 1.0
+        chosen, valid_op = select_operating_point(
+            valid.join_scores(scores=_sigmoid(_logit(s_valid_raw), temp)), min_recall=min_recall
+        )
 
     # --- test scoring -------------------------------------------------------
     s_test_raw = np.asarray(matcher.score(test.labeled.frame), dtype=float)
@@ -150,6 +207,12 @@ def run_system(
         thr = float(matcher.threshold)  # only similarity matchers carry one
     except AttributeError:
         thr = float("nan")
+
+    # Review band tied to the actual operating point: the pairs the decision
+    # throws away are exactly the pairs a reviewer could recover. A fixed
+    # [0.35, 0.65] band would describe a policy unrelated to the threshold in use.
+    if review_band is None:
+        review_band = (max(0.0, float(chosen) - review_delta), float(chosen))
 
     rows: list[dict] = []
     base_common = {
@@ -166,6 +229,15 @@ def run_system(
         "positives": int(test.labeled.frame["label"].sum()),
         "temperature": temp,
         "native_threshold": thr,
+        "ceiling_used": ceiling_used,
+        "veto_binds_valid": n_effective_valid,
+        "op_rule": valid_op.get("rule"),
+        "review_lower": review_band[0],
+        "review_upper": review_band[1],
+        "min_recall": min_recall,
+        "valid_precision": valid_op.get("precision"),
+        "valid_recall": valid_op.get("recall"),
+        "valid_f1": valid_op.get("f1"),
         "fit_seconds": round(fit_seconds, 2),
         "fingerprint": test.meta.get("fingerprint"),
         "config": json.dumps(asdict(spec), default=str),

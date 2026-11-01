@@ -68,6 +68,14 @@ def specs(with_embeddings: bool) -> list[SystemSpec]:
     s = [
         SystemSpec("s1_similarity_tokenset", "similarity", {"metric": "token_set"}, group="baseline"),
         SystemSpec("s1b_similarity_jaro", "similarity", {"metric": "jaro_winkler"}, group="baseline"),
+        SystemSpec("s1c_wordcooc_svm", "wordcooc", {}, group="baseline"),
+        SystemSpec(
+            "s1d_wordcooc_constraint",
+            "wordcooc",
+            {},
+            constraints={"mode": "asymmetric_subset", "ceiling": 0.30, "use_specifiers": True, "ref": "s1c_wordcooc_svm"},
+            group="ours",
+        ),
         SystemSpec("s2_classifier_nofeatattr", "classifier", {"groups": ["fuzz", "tok", "num"]}, group="baseline"),
         SystemSpec("s3_classifier_featattr", "classifier", {"groups": ["fuzz", "tok", "num", "attr"]}, group="ours"),
         # typed attribute veto only (no unit-numeric specifiers)
@@ -167,8 +175,14 @@ def main() -> None:
     for spec in specs(args.with_embeddings):
         ref = None
         if spec.constraints:
-            ref_name = EMB_REFERENCE if spec.kind == "embedding" else REFERENCE
+            # each constrained system is compared at the operating point of ITS
+            # own unconstrained base matcher (wordcooc vs wordcooc, sbert vs sbert)
+            ref_name = spec.constraints.get("ref")
+            if ref_name is None:
+                ref_name = EMB_REFERENCE if spec.kind == "embedding" else REFERENCE
             ref = chosen_thr.get(ref_name)
+            if ref is None:
+                print(f"  note: reference {ref_name} not run yet; skipping ref-threshold slice", file=sys.stderr)
         try:
             r, scored = run_system(spec, ds, tr, va, te, embeddings=embeddings, ref_threshold=ref)
             rows.extend(r)
@@ -215,29 +229,8 @@ def main() -> None:
     with pd.option_context("display.width", 200, "display.max_columns", 30, "display.float_format", "{:.4f}".format):
         print(table.to_string(index=False))
 
-    # --- clustering stage: the pairwise-optimal threshold is not the entity-optimal one
-    from er.experiment import clustering_sweep
-
-    for name in [n for n in ("s3_classifier_featattr", "s5_full_constraint") if n in scored_store]:
-        sc = scored_store[name]
-        frames = []
-        for cleanup, vw in [(False, 0.5), (True, 0.4), (True, 0.6), (True, 0.8)]:
-            sweep = clustering_sweep(ds, sc, use_cleanup=cleanup, violation_weight=vw, label=name)
-            if sweep.empty:
-                continue
-            tagname = f"{name}_{'clean' + str(vw) if cleanup else 'naive'}"
-            sweep.to_csv(out_dir / f"{tag}_clustering_{tagname}.csv", index=False)
-            best = sweep.loc[sweep["entity_f1"].idxmax()]
-            pw_best = sweep.loc[sweep["pairwise_f1"].idxmax()]
-            frames.append(sweep)
-            print(
-                f"{name} cleanup={vw if cleanup else 'naive '}: "
-                f"pairwise-opt thr={pw_best['threshold']:.3f} -> entity F1={pw_best['entity_f1']:.4f} "
-                f"(max cl={pw_best['max_size']:.0f}) | best entity F1={best['entity_f1']:.4f} "
-                f"@thr={best['threshold']:.3f} (P={best['entity_precision']:.3f} R={best['entity_recall']:.3f} "
-                f"dropped={best['n_edges_dropped']:.0f})"
-            )
-
+    # Persist the matching artifacts FIRST: a failure in the clustering sweep
+    # below must not cost the scored tables of a multi-minute run.
     for name, scored in scored_store.items():
         scored.to_csv(out_dir / f"{tag}_scored_{name}.csv")
     for name in ("s3_classifier_featattr", "s5_full_constraint"):
@@ -246,6 +239,31 @@ def main() -> None:
             if not rel.empty:
                 rel.insert(0, "system", name)
                 rel.to_csv(out_dir / f"{tag}_reliability_{name}.csv", index=False)
+
+    # --- clustering stage: the pairwise-optimal threshold is not the entity-optimal one
+    from er.experiment import clustering_sweep
+
+    for name in [n for n in ("s3_classifier_featattr", "s5_full_constraint") if n in scored_store]:
+        sc = scored_store[name]
+        for cleanup, vw in [(False, 0.5), (True, 0.4), (True, 0.6), (True, 0.8)]:
+            try:
+                sweep = clustering_sweep(ds, sc, use_cleanup=cleanup, violation_weight=vw, label=name)
+            except Exception as exc:  # one bad sweep config must not lose the rest of the run
+                print(f"{name} cleanup={vw} SWEEP FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
+                continue
+            if sweep.empty:
+                continue
+            tagname = f"{name}_{'clean' + str(vw) if cleanup else 'naive'}"
+            sweep.to_csv(out_dir / f"{tag}_clustering_{tagname}.csv", index=False)
+            best = sweep.loc[sweep["entity_f1"].idxmax()]
+            pw_best = sweep.loc[sweep["pairwise_f1"].idxmax()]
+            print(
+                f"{name} cleanup={vw if cleanup else 'naive '}: "
+                f"pairwise-opt thr={pw_best['threshold']:.3f} -> entity F1={pw_best['entity_f1']:.4f} "
+                f"(max cl={pw_best['max_size']:.0f}) | best entity F1={best['entity_f1']:.4f} "
+                f"@thr={best['threshold']:.3f} (P={best['entity_precision']:.3f} R={best['entity_recall']:.3f} "
+                f"dropped={best['n_edges_dropped']:.0f})"
+            )
     from er.experiment import case_table
 
     for name in ("s3_classifier_featattr", "s5_full_constraint"):

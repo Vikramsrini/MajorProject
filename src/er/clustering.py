@@ -84,42 +84,48 @@ def transitive_cleanup(
     ``attrs["transitive_cleanup_dropped"]`` recording the number removed.
     """
     edges = edges.drop_duplicates(subset=["record_id_l", "record_id_r"]).reset_index(drop=True)
+    has_score = score_col in edges.columns
+    triples = [
+        (str(row["record_id_l"]), str(row["record_id_r"]), float(row[score_col]) if has_score else 1.0)
+        for _, row in edges.iterrows()
+    ]
 
-    # adjacency: node -> {neighbour: (score, edge_index)}
-    adj: dict[str, dict[str, tuple[float, int]]] = defaultdict(dict)
-    for idx, row in edges.iterrows():
-        l, r = str(row["record_id_l"]), str(row["record_id_r"])
-        s = float(row[score_col]) if score_col in edges.columns else 1.0
-        adj.setdefault(l, {})[r] = (s, int(idx))
-        adj.setdefault(r, {})[l] = (s, int(idx))
     dropped: set[int] = set()
     for _ in range(max_iter):
-        found = 0
-        # snapshot neighbour sets: dropping during iteration would make the
-        # violation detection depend on traversal order.
-        nbrs = {n: set(adj[n]) for n in adj}
-        for a, nb in nbrs.items():
+        # Rebuild adjacency from the surviving edges and detect violations
+        # against that single snapshot. Dropping edges while iterating both
+        # crashed on deleted entries and made the outcome depend on traversal
+        # order; batch-per-pass removal is deterministic and reproducible.
+        adj: dict[str, dict[str, tuple[float, int]]] = {}
+        for idx, (l, r, s) in enumerate(triples):
+            if idx in dropped:
+                continue
+            adj.setdefault(l, {})[r] = (s, idx)
+            adj.setdefault(r, {})[l] = (s, idx)
+
+        proposals: list[tuple[float, int]] = []
+        for a, nb in adj.items():
             if len(nb) < 2:
                 continue
             for b in nb:
                 for c in nb:
                     if b >= c:
                         continue
-                    if c in nbrs.get(b, ()):  # triangle closed: consistent
-                        continue
-                    sb, sc = adj[a][b][0], adj[a][c][0]
-                    sus_node, sus_score, sus_idx = (b, sb, adj[a][b][1]) if sb <= sc else (c, sc, adj[a][c][1])
+                    if c in adj.get(b, {}):
+                        continue  # triangle closed: consistent
+                    sb, ib = nb[b]
+                    sc, ic = nb[c]
+                    sus_score, sus_idx = (sb, ib) if sb <= sc else (sc, ic)
                     if sus_idx in dropped or sus_score >= violation_weight:
                         continue  # confident on both sides: do not guess
-                    dropped.add(sus_idx)
-                    adj[a].pop(sus_node, None)
-                    adj.setdefault(sus_node, {}).pop(a, None)
-                    found += 1
-        if found == 0:
-            break
+                    proposals.append((sus_score, sus_idx))
 
-    keep_mask = [i not in dropped for i in range(len(edges))]
-    out = edges[keep_mask].reset_index(drop=True)
+        if not proposals:
+            break
+        # deterministic application: weakest edge first, ties broken by edge index
+        dropped.update(idx for _, idx in sorted(proposals) if idx not in dropped)
+
+    out = edges[[i not in dropped for i in range(len(edges))]].reset_index(drop=True)
     out.attrs = {"transitive_cleanup_dropped": int(len(dropped))}
     return out
 

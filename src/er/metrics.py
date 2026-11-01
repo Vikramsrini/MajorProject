@@ -181,6 +181,62 @@ def precision_at_recall(y: np.ndarray, s: np.ndarray, target_recall: float = 0.5
     return tp_t / (tp_t + fp_t) if (tp_t + fp_t) else 0.0
 
 
+def select_operating_point(
+    pt: PairTable, min_recall: float = 0.5, metric: str = "f1"
+) -> tuple[float, dict[str, float]]:
+    """Pick a decision threshold on validation, under a precision-forward rule.
+
+    Why not plain max-F1: when a hard constraint removes false positives, an
+    F1-maximising threshold simply slides downward and reads comparable noise
+    back in, so the constraint appears to do nothing. Maximising precision
+    subject to a recall floor makes the comparison honest and is the regime an
+    actual catalog owner cares about (a wrong merge is expensive, a missed
+    duplicate is merely annoying).
+
+    Falls back to max-F1 when no candidate reaches the recall floor.
+
+    Returns:
+        (threshold, metrics_at_threshold)
+    """
+    df = pt.labeled.frame
+    if df.empty or "score" not in df.columns:
+        return float("nan"), {}
+    y = df["label"].astype(int).to_numpy()
+    s = df["score"].astype(float).to_numpy()
+    n_pos = int(y.sum())
+    if n_pos == 0:
+        return float("nan"), {}
+
+    cands = np.unique(np.concatenate(([0.0], s, [s.max() + 1e-6])))
+    feasible, scored_cands = [], []
+    for t in cands:
+        pred = s >= t
+        tp = int((pred & (y == 1)).sum())
+        fp = int((pred & (y == 0)).sum())
+        fn = n_pos - tp
+        p, r, f1 = _prf_local(tp, fp, fn)
+        scored_cands.append((float(t), p, r, f1))
+        if r >= min_recall:
+            feasible.append((float(t), p, r, f1))
+
+    pool = feasible if feasible else scored_cands
+    obj = (lambda x: x[1]) if feasible else (lambda x: x[3])
+    best_obj = max(obj(c) for c in pool)
+    tol = 1e-9
+    tied = [c for c in pool if obj(c) >= best_obj - tol]
+    # highest threshold among ties = strictest cut
+    t, p, r, f1 = max(tied, key=lambda x: x[0])
+    rule = f"max_precision@recall>={min_recall}" if feasible else "max_f1_fallback"
+    return t, {"precision": p, "recall": r, "f1": f1, "rule": rule}
+
+
+def _prf_local(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
+    p = tp / (tp + fp) if (tp + fp) else 0.0
+    r = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * p * r / (p + r) if (p + r) else 0.0
+    return p, r, f1
+
+
 def recall_at_threshold(y: np.ndarray, s: np.ndarray, thr: float) -> float:
     y = np.asarray(y, dtype=int)
     s = np.asarray(s, dtype=float)
