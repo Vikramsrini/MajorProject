@@ -6,7 +6,8 @@ data/
 
 # Per-pair score dumps (45 MB). Regenerate with scripts/run_wdc.py; every claim in the
 # paper can be recomputed from the summary CSVs, which ARE tracked.
-results/*_scored_*   # .csv dumps and their .csv.meta.json sidecars
+# per-pair score dumps and their .json sidecars
+results/*_scored_*
 
 logs/
 
