@@ -1,6 +1,6 @@
 \begin{table*}[t]
 \centering
-\caption{Every system on all nine WDC Products variants, columns labeled corner-case\%/unseen\%. Word co-occurrence (row 3) leads on seen products and falls below the structural feature model (row 6) at 100\% unseen. The entity block is the same systems an order of magnitude worse than their own pair-level numbers.}
+\caption{Every system on all nine WDC Products variants, columns labeled corner-case\%/unseen\%. Word co-occurrence (row 3) leads on seen products and falls below the structural feature model (row 6) at 100\% unseen. The entity block is the same systems an order of magnitude worse than their own pair-level numbers. \emph{Reading caution:} a system marked $^{\dagger}$ degenerated to an accept-everything operating point in at least one variant, so its pair F1 is pinned at the class base rate rather than measuring matching skill --- the recall floor left no feasible threshold short of accepting every candidate, and its clustering collapses into one mega-cluster. Jaro-Winkler is different: a genuinely poor scorer (AP 0.145--0.203) at a usable threshold. Both are reported rather than smoothed away.}
 \label{tab:cross}
 \small
 \resizebox{\textwidth}{!}{%
@@ -19,7 +19,7 @@ GBDT + typed veto (asym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \t
 GBDT + typed veto (sym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
 GBDT + typed + specifiers & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
 Sentence-BERT cosine & 0.298 & 0.382 & 0.384 & -- & -- & -- & -- & -- & -- \\
-SBERT + constraint & 0.200 & 0.200 & 0.200 & -- & -- & -- & -- & -- & -- \\
+SBERT + constraint$^{\dagger}$ & 0.200 & 0.200 & 0.200 & -- & -- & -- & -- & -- & -- \\
 \addlinespace
 \multicolumn{10}{l}{\textit{entity-level F1}} \\
 Token-set similarity & 0.123 & 0.183 & 0.206 & 0.131 & 0.208 & 0.247 & 0.168 & 0.248 & \textbf{0.238} \\
@@ -32,7 +32,7 @@ GBDT + typed veto (asym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.2
 GBDT + typed veto (sym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
 GBDT + typed + specifiers & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
 Sentence-BERT cosine & 0.110 & 0.150 & 0.197 & -- & -- & -- & -- & -- & -- \\
-SBERT + constraint & 0.002 & 0.002 & 0.002 & -- & -- & -- & -- & -- & -- \\
+SBERT + constraint$^{\dagger}$ & 0.002 & 0.002 & 0.002 & -- & -- & -- & -- & -- & -- \\
 \bottomrule
 \end{tabular}
 }

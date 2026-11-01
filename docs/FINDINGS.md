@@ -297,7 +297,9 @@ large share of the capped pairs are positives, no threshold above the capped blo
 floor, so the only feasible cut is the one that admits everything. Two consequences recorded here:
 
 * `run_system` now emits `degenerate_operating_point`, computed from **validation** recall (never test), so a
-  row of this kind cannot be misread as a score.
+  row of this kind cannot be misread as a score. **Verified on the 80%/0% re-run:** `True` for
+  `s7_sbert_full_constraint` (recall 1.000, precision 0.1112) and `False` for all ten other systems. The
+  generated cross-variant table marks such rows with a dagger, so the number and the caveat travel together.
 * A recall floor is a hard constraint on the constraint. Any future veto mechanism must either cap a
   smaller, higher-precision set (e.g. stated-vs-stated conflicts only) or route capped pairs to the review
   band instead of rejecting them --- which is where H3 and H2 should have been combined from the start.

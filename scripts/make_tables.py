@@ -265,11 +265,20 @@ def table_cross_variant(results: Path, out: Path) -> None:
     epiv = e.pivot_table(index="system", columns="variant", values="entity_f1", aggfunc="first")
     best_pair = {v: fpiv[v].max() for v in variants if v in fpiv.columns}
     best_ent = {v: epiv[v].max() for v in variants if v in epiv.columns}
+    # Systems whose operating point degenerated to "accept everything" in at least
+    # one variant. Marked in the table itself, because the number alone looks like a
+    # legitimate low score and a reader would otherwise compare it to real matchers.
+    degenerate = (
+        set(a[a.get("degenerate_operating_point").fillna(False).astype(bool)].system)
+        if "degenerate_operating_point" in a.columns
+        else set()
+    )
 
     def block(piv, best, title):
         rows = [["\\multicolumn{" + str(len(variants) + 1) + "}{l}{\\textit{" + title + "}}"]]
         for s in order:
-            cells = [SYSTEM_LABELS[s]]
+            label = SYSTEM_LABELS[s] + ("$^{\\dagger}$" if s in degenerate else "")
+            cells = [label]
             for v in variants:
                 val = piv.loc[s, v] if v in piv.columns and s in piv.index else float("nan")
                 txt = fmt(val, "{:.3f}")
@@ -286,11 +295,12 @@ def table_cross_variant(results: Path, out: Path) -> None:
         "corner-case\\%/unseen\\%. Word co-occurrence (row 3) leads on seen products and falls "
         "below the structural feature model (row 6) at 100\\% unseen. The entity block is the "
         "same systems an order of magnitude worse than their own pair-level numbers. "
-        "\\emph{Reading caution:} the constrained SBERT row is a failed \\emph{operating point}, "
-        "not a weak matcher --- the recall floor left no feasible threshold short of accepting "
-        "every candidate, so its precision is pinned at the base rate (0.111) and its clustering "
-        "collapses into one mega-cluster. Jaro-Winkler, by contrast, is a genuinely poor scorer "
-        "(AP 0.145--0.203) at a usable threshold. Both are reported rather than smoothed away."
+        "\\emph{Reading caution:} a system marked $^{\\dagger}$ degenerated to an "
+        "accept-everything operating point in at least one variant, so its pair F1 is pinned "
+        "at the class base rate rather than measuring matching skill --- the recall floor left "
+        "no feasible threshold short of accepting every candidate, and its clustering collapses "
+        "into one mega-cluster. Jaro-Winkler is different: a genuinely poor scorer (AP "
+        "0.145--0.203) at a usable threshold. Both are reported rather than smoothed away."
     )
     out.joinpath("table_cross_variant.tex").write_text(wrap(body, "cross", cap, len(variants) + 1, wide=True))
     print(f"  wrote {out/'table_cross_variant.tex'} ({len(order)} systems x {len(variants)} variants)")
