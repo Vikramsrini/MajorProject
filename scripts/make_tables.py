@@ -331,6 +331,70 @@ def table_cross_variant(results: Path, out: Path) -> None:
     print(f"  wrote {out/'table_cross_variant.tex'} ({len(order)} systems x {len(variants)} variants)")
 
 
+def table_strongbase(results: Path, out: Path) -> None:
+    """Cross-encoder vs the same cross-encoder with the constraint, all nine variants.
+
+    The point of this table is that it reports the comparisons that a threshold cannot
+    distort: AP (threshold-free), entity-level F1, and the constrained system's F1
+    *evaluated at the unconstrained system's threshold*. The F1 each system reports at
+    its own operating point is deliberately omitted from the headline columns, because
+    capping forces the constrained system's threshold down and makes that column read as
+    a gain when every invariant measure says the opposite.
+    """
+    files = sorted(glob.glob(str(results / "*_ce_*_results.csv")))
+    if not files:
+        print("  skip strong-base table: no cross-encoder results yet")
+        return
+    d = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
+    if not {"s8_crossencoder", "s9_crossencoder_constraint"} <= set(d.system):
+        print("  skip strong-base table: both s8 and s9 rows are required")
+        return
+
+    def sl(sys_name, slice_name):
+        return d[(d.system == sys_name) & (d.slice == slice_name)].set_index(["corner_cases", "unseen"])
+
+    a8, a9 = sl("s8_crossencoder", "all"), sl("s9_crossencoder_constraint", "all")
+    e8, e9 = sl("s8_crossencoder", "entity_level"), sl("s9_crossencoder_constraint", "entity_level")
+    r9 = sl("s9_crossencoder_constraint", "all_at_ref_threshold")
+    v9 = sl("s9_crossencoder_constraint", "veto_diagnostics")
+
+    keys = sorted(a8.index, key=lambda x: (-int(x[0]), int(x[1])))
+    rows, worst = [], []
+    for k in keys:
+        ap8, ap9 = float(a8.loc[k, "auc_pr"]), float(a9.loc[k, "auc_pr"])
+        en8 = float(e8.loc[k, "entity_f1"]) if k in e8.index else float("nan")
+        en9 = float(e9.loc[k, "entity_f1"]) if k in e9.index else float("nan")
+        f9s = float(r9.loc[k, "f1"]) if k in r9.index else float("nan")
+        vp = float(v9.loc[k, "veto_precision"]) if k in v9.index else float("nan")
+        kt = float(v9.loc[k, "veto_true_matches"]) if k in v9.index else float("nan")
+        rows.append(
+            [
+                f"{int(k[0])}/{int(k[1])}",
+                fmt(ap8), fmt(ap9), fmt(ap9 - ap8, "{:+.3f}"),
+                fmt(en8), fmt(en9), fmt(en9 - en8, "{:+.3f}"),
+                fmt(f9s), fmt(vp), f"{int(kt)}",
+            ]
+        )
+    n_ap_worse = int((a9["auc_pr"] < a8["auc_pr"]).sum())
+    n_en_worse = int(
+        sum(1 for k in keys if k in e9.index and k in e8.index and float(e9.loc[k, "entity_f1"]) < float(e8.loc[k, "entity_f1"]))
+    )
+    body = rows_table(
+        rows,
+        ["variant", "AP s8", "AP s9", r"$\Delta$AP", "ent-F1 s8", "ent-F1 s9", r"$\Delta$ent", "s9 F1 @ s8 thr", "veto prec.", "true matches blocked"],
+    )
+    cap = (
+        "Cross-encoder (s8) against the same weights with the attribute constraint (s9), all nine "
+        f"variants. AP is lower for the constrained system in {n_ap_worse}/9 variants, its F1 evaluated at "
+        f"the unconstrained operating point is lower in 9/9, and entity-level F1 is lower in {n_en_worse}/9. "
+        "Veto precision averages 0.281: roughly 72\\% of the pairs it blocked were genuine matches. The "
+        "constrained system's own F1 is not shown because capping drags its threshold down, which makes "
+        "that column read as an improvement when every threshold-free measure disagrees."
+    )
+    out.joinpath("table_strongbase.tex").write_text(wrap(body, "strongbase", cap, 10, wide=True))
+    print(f"  wrote {out/'table_strongbase.tex'} (AP worse {n_ap_worse}/9, entity worse {n_en_worse}/9)")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default="results")
@@ -345,6 +409,7 @@ def main() -> None:
     table_matching(results, args.tag, out)
     table_blocking(results, out)
     table_entity(results, args.tag, args.entity_system, out)
+    table_strongbase(results, out)
     table_cross_variant(results, out)
 
 

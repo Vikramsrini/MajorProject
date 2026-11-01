@@ -1,0 +1,23 @@
+\begin{table*}[t]
+\centering
+\caption{Cross-encoder (s8) against the same weights with the attribute constraint (s9), all nine variants. AP is lower for the constrained system in 9/9 variants, its F1 evaluated at the unconstrained operating point is lower in 9/9, and entity-level F1 is lower in 7/9. Veto precision averages 0.281: roughly 72\% of the pairs it blocked were genuine matches. The constrained system's own F1 is not shown because capping drags its threshold down, which makes that column read as an improvement when every threshold-free measure disagrees.}
+\label{tab:strongbase}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+variant & AP s8 & AP s9 & $\Delta$AP & ent-F1 s8 & ent-F1 s9 & $\Delta$ent & s9 F1 @ s8 thr & veto prec. & true matches blocked \\
+\midrule
+80/0 & 0.7840 & 0.6946 & -0.089 & 0.6369 & 0.5092 & -0.128 & 0.3939 & 0.2982 & 193 \\
+80/50 & 0.7765 & 0.7388 & -0.038 & 0.6168 & 0.5937 & -0.023 & 0.4840 & 0.3243 & 150 \\
+80/100 & 0.7921 & 0.7390 & -0.053 & 0.6000 & 0.5854 & -0.015 & 0.4580 & 0.3047 & 162 \\
+50/0 & 0.8202 & 0.7700 & -0.050 & 0.6029 & 0.6772 & +0.074 & 0.4074 & 0.1649 & 162 \\
+50/50 & 0.8297 & 0.7713 & -0.058 & 0.6220 & 0.6076 & -0.014 & 0.5337 & 0.3251 & 191 \\
+50/100 & 0.7987 & 0.7440 & -0.055 & 0.6040 & 0.5548 & -0.049 & 0.4292 & 0.3045 & 169 \\
+20/0 & 0.8804 & 0.8305 & -0.050 & 0.6451 & 0.6137 & -0.031 & 0.4896 & 0.2612 & 181 \\
+20/50 & 0.8640 & 0.8203 & -0.044 & 0.6586 & 0.6974 & +0.039 & 0.4398 & 0.2098 & 177 \\
+20/100 & 0.8532 & 0.8014 & -0.052 & 0.6723 & 0.5645 & -0.108 & 0.6059 & 0.3333 & 156 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}

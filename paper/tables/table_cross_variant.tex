@@ -11,28 +11,32 @@ System & 80/0 & 80/50 & 80/100 & 50/0 & 50/50 & 50/100 & 20/0 & 20/50 & 20/100 \
 \multicolumn{10}{l}{\textit{pair-level F1}} \\
 Token-set similarity & 0.337 & 0.394 & 0.378 & 0.360 & 0.422 & 0.403 & 0.398 & 0.451 & 0.458 \\
 Jaro-Winkler & 0.212 & 0.237 & 0.223 & 0.232 & 0.234 & 0.246 & 0.254 & 0.251 & 0.256 \\
-Word co-occurrence + SVM \cite{peeters2024wdc} & \textbf{0.515} & 0.452 & 0.273 & \textbf{0.533} & 0.452 & 0.281 & \textbf{0.548} & 0.480 & 0.320 \\
+Word co-occurrence + SVM \cite{peeters2024wdc} & 0.515 & 0.452 & 0.273 & 0.533 & 0.452 & 0.281 & 0.548 & 0.480 & 0.320 \\
 Word co-occ. + constraint & 0.483 & 0.444 & 0.324 & 0.507 & 0.445 & 0.350 & 0.502 & 0.466 & 0.385 \\
-GBDT, no attr. features & 0.353 & 0.455 & 0.389 & 0.425 & 0.462 & 0.403 & 0.435 & \textbf{0.489} & 0.455 \\
-GBDT + attr. features & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.447 & 0.462 & 0.438 & 0.455 & 0.483 & 0.472 \\
-GBDT + typed veto (asym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
-GBDT + typed veto (sym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
-GBDT + typed + specifiers & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
+GBDT, no attr. features & 0.353 & 0.455 & 0.389 & 0.425 & 0.462 & 0.403 & 0.435 & 0.489 & 0.455 \\
+GBDT + attr. features & 0.369 & 0.456 & 0.414 & 0.447 & 0.462 & 0.438 & 0.455 & 0.483 & 0.472 \\
+GBDT + typed veto (asym.) & 0.369 & 0.456 & 0.414 & 0.459 & 0.469 & 0.445 & 0.456 & 0.486 & 0.477 \\
+GBDT + typed veto (sym.) & 0.369 & 0.456 & 0.414 & 0.459 & 0.469 & 0.445 & 0.456 & 0.486 & 0.477 \\
+GBDT + typed + specifiers & 0.369 & 0.456 & 0.414 & 0.459 & 0.469 & 0.445 & 0.456 & 0.486 & 0.477 \\
 Sentence-BERT cosine & 0.298 & 0.382 & 0.384 & -- & -- & -- & -- & -- & -- \\
 SBERT + constraint$^{\dagger}$ & 0.200 & 0.200 & 0.200 & -- & -- & -- & -- & -- & -- \\
+Fine-tuned cross-encoder & 0.651 & 0.652 & 0.636 & 0.610 & 0.651 & 0.633 & 0.657 & 0.668 & 0.683 \\
+Cross-encoder + constraint & \textbf{0.705} & \textbf{0.721} & \textbf{0.732} & \textbf{0.761} & \textbf{0.769} & \textbf{0.733} & \textbf{0.793} & \textbf{0.804} & \textbf{0.782} \\
 \addlinespace
 \multicolumn{10}{l}{\textit{entity-level F1}} \\
-Token-set similarity & 0.123 & 0.183 & 0.206 & 0.131 & 0.208 & 0.247 & 0.168 & 0.248 & \textbf{0.238} \\
+Token-set similarity & 0.123 & 0.183 & 0.206 & 0.131 & 0.208 & 0.247 & 0.168 & 0.248 & 0.238 \\
 Jaro-Winkler & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 \\
-Word co-occurrence + SVM \cite{peeters2024wdc} & \textbf{0.326} & \textbf{0.282} & 0.184 & \textbf{0.405} & 0.269 & 0.163 & \textbf{0.393} & \textbf{0.317} & 0.221 \\
+Word co-occurrence + SVM \cite{peeters2024wdc} & 0.326 & 0.282 & 0.184 & 0.405 & 0.269 & 0.163 & 0.393 & 0.317 & 0.221 \\
 Word co-occ. + constraint & 0.135 & 0.131 & 0.113 & 0.087 & 0.058 & 0.044 & 0.054 & 0.052 & 0.063 \\
 GBDT, no attr. features & 0.166 & 0.231 & 0.235 & 0.209 & 0.226 & 0.247 & 0.149 & 0.222 & 0.113 \\
-GBDT + attr. features & 0.188 & 0.250 & \textbf{0.237} & 0.214 & \textbf{0.272} & \textbf{0.299} & 0.203 & 0.291 & 0.203 \\
-GBDT + typed veto (asym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
-GBDT + typed veto (sym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
-GBDT + typed + specifiers & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+GBDT + attr. features & 0.188 & 0.250 & 0.237 & 0.214 & 0.272 & 0.299 & 0.203 & 0.291 & 0.203 \\
+GBDT + typed veto (asym.) & 0.188 & 0.250 & 0.237 & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+GBDT + typed veto (sym.) & 0.188 & 0.250 & 0.237 & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+GBDT + typed + specifiers & 0.188 & 0.250 & 0.237 & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
 Sentence-BERT cosine & 0.110 & 0.150 & 0.197 & -- & -- & -- & -- & -- & -- \\
 SBERT + constraint$^{\dagger}$ & 0.002 & 0.002 & 0.002 & -- & -- & -- & -- & -- & -- \\
+Fine-tuned cross-encoder & \textbf{0.637} & \textbf{0.617} & \textbf{0.600} & 0.603 & \textbf{0.622} & \textbf{0.604} & \textbf{0.645} & 0.659 & \textbf{0.672} \\
+Cross-encoder + constraint & 0.509 & 0.594 & 0.585 & \textbf{0.677} & 0.608 & 0.555 & 0.614 & \textbf{0.697} & 0.565 \\
 \bottomrule
 \end{tabular}
 }

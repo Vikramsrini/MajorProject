@@ -35,18 +35,19 @@ Entity-resolution systems are almost always reported at the threshold that maxim
 matching F1, yet the deliverable of a pipeline is a set of \emph{resolved entities}. We measure that
 mismatch on WDC Products and then ask what actually improves the resolved catalogue. A fine-tuned
 cross-encoder reproduces the benchmark's published baseline (F1 0.7102 versus 0.7218) and raises
-entity-level F1 from 0.188 to 0.582 --- more than every clustering mechanism we implemented combined
-(+0.19) --- so matching quality dominates post-hoc repair. We then test attribute- and
-specifier-constrained scoring across all nine benchmark variants and report a failure with a mechanism:
-the veto's precision collapses from 0.749 on a weak feature-based matcher to \textbf{0.335} on the
-cross-encoder, where 183 of 275 effectively blocked pairs were \emph{genuine} matches. Its apparent
-$+4.7$ F1 gain is threshold slide, not improvement: at a shared threshold F1 falls by 25.9 points and
-average precision by 7.1, because capping costs recall and any recall-respecting threshold re-admits
-exactly what was blocked. The same evidence used as \emph{soft features} helps instead (AP $+0.019$ in
-9/9 variants). We further show that the better matcher on seen products is the worse one on unseen
-products, and that raw string similarity is badly uncalibrated (ECE 0.39 versus 0.027), which is what
-makes selective acceptance usable. Our protocol reproduces the benchmark's published baseline with mean
-bias $-0.001$ across nine cells; we claim no state of the art.
+entity-level F1 from 0.240 to 0.629 --- a gain of $+0.39$, against $+0.23$ for the best clustering
+mechanism we built --- so matching quality dominates post-hoc repair, though not to its exclusion. We then
+test attribute- and specifier-constrained scoring across all nine benchmark variants and report a failure
+\emph{with a mechanism}: the veto's precision falls from 0.749 on a weak feature-based matcher to a mean of
+\textbf{0.281} on the cross-encoder, where \textbf{171 of 239} blocked pairs per variant were \emph{genuine}
+matches. Its apparent F1 gain of several points is threshold slide: average precision is lower in
+\textbf{9/9} variants (mean $-0.054$), and at a shared operating point F1 is lower in \textbf{9/9}
+(mean $-0.19$). The same evidence used as \emph{soft features} helps instead (AP $+0.019$ in 9/9). We
+further show that the model which wins on seen products is the one that fails on unseen products: the
+fine-tuned encoder loses 1.2 F1 points across the unseen axis where a bag-of-words baseline loses 24. Raw
+string similarity is badly uncalibrated (ECE 0.39 versus 0.027 for the cross-encoder), which is what makes
+selective acceptance usable. Our protocol reproduces the published baseline with mean bias $-0.001$ across
+nine cells; we claim no state of the art.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -75,12 +76,22 @@ what did not work.
   0.383 after a gated transitive-consistency cleanup at the \emph{unchanged} threshold (Table~\ref{tab:entity}).
   The cleanup gain holds in 18 of 18 system-variant cells and shrinks the largest cluster from 14--68 offers
   to 4--6 every time.
-\item We implement attribute- and specifier-constrained scoring and report it as a \emph{negative}
-  result, with a diagnostic we believe is rarely published --- veto precision, i.e.\ the fraction of
-  blocked pairs that were genuine matches (0.62--0.75). We show why it is structurally inert: capping costs
-  recall, so any threshold satisfying a recall floor re-admits the capped pairs --- logged in all nine variants.
-\item We show that the same evidence is worth more as soft features than as a hard veto, and that raw
-  similarity is nowhere near calibrated (ECE 0.39 versus 0.07 after training and temperature scaling).
+\item We show that \emph{base-matcher quality dominates every post-hoc mechanism}. A fine-tuned
+  cross-encoder reaching parity with the published baseline (F1 0.7102 versus 0.7218) lifts entity-level
+  F1 from 0.240 to 0.629, i.e.\ $+0.39$ in 9/9 variants, against $+0.23$ for the best clustering mechanism
+  we built. Resolved-catalogue quality is bought at the matcher first, and repaired afterwards only at a
+  1.7$\times$ smaller return.
+\item We evaluate attribute- and specifier-constrained scoring across all nine benchmark variants and
+  report a failure \emph{with a mechanism}: veto precision falls from 0.749 on a weak feature model to a
+  mean of 0.281 (range 0.165--0.333) on the cross-encoder, where 171 of 239 blocked pairs per variant were
+  genuine matches. The constraint's apparent F1 gain is threshold slide --- AP is lower in 9/9 variants
+  (mean $-0.054$) and F1 at a shared operating point is lower in 9/9 (mean $-0.19$) --- so a hard
+  constraint is a crutch for weak matchers that actively harms strong ones, inverting our starting
+  hypothesis.
+\item We show that the same evidence pays as \emph{soft features} (AP $+0.019$ in 9/9 variants,
+  hard-negative false merges $-1.9$ points in 9/9) but not as a hard rule, and that raw similarity is
+  nowhere near calibrated (ECE 0.39 versus 0.027 for the cross-encoder), which is what makes selective
+  acceptance usable: calibrated bands beat the class base rate in 9/9 variants at 3--10\% workload.
 \item We report a robustness inversion that single-split evaluation hides: word co-occurrence beats a
   structural feature model by 9--15 F1 points on seen products and loses to it by 14--16 points when every
   test product is unseen, so the preferred matcher depends on which split you look at.
@@ -237,7 +248,42 @@ Cleanup buys precision with recall --- 0.491 versus 0.314 at $\gamma=0.8$, havin
 edges to 315 --- and it is a reproduction of published ideas \cite{dmeer2025transclean,dmeer2025gralmatch},
 not a novelty claim. Its value here is diagnostic: it makes the operating-point cost measurable.
 
-\subsection{Robustness across benchmark variants}
+\subsection{A strong base matcher inverts the conclusion}
+\label{sec:strongbase}
+All results above use a lightweight matcher, so a reviewer may reasonably ask whether the constraint fails
+because the matcher is weak. We therefore fine-tuned a cross-encoder (RoBERTa-base, Ditto-style field
+serialisation, 8 epochs / 1{,}320 steps) and ran both systems, with and without the constraint, across all
+nine variants. At 80\%/0\% it reaches F1 \textbf{0.7102} at its F1-optimal threshold against the
+benchmark's published \textbf{0.7218} for the same architecture --- parity, so this is a fair test rather
+than a straw man. Table~\ref{tab:strongbase} reports every variant.
+
+\IfFileExists{tables/table_strongbase.tex}{\input{tables/table_strongbase}}{}
+
+\textbf{Base quality dominates, but cleanup is not negligible.} Entity-level F1 rises from 0.240
+(feature-based matcher) to \textbf{0.629} (cross-encoder): $+0.389$, in 9/9 variants. The best clustering
+mechanism we built adds $+0.230$ to the weak matcher, also in 9/9. Matching quality is therefore worth
+$1.7\times$ the mechanism --- not the order of magnitude an earlier single-cell reading suggested, which
+the grid corrected. The operational reading stands: buy matching quality first, then repair, and expect
+repair to matter most where matching is weakest.
+
+\textbf{The constraint's apparent gain is threshold slide.} Constrained scoring reports a higher F1 in most
+variants, sometimes by more than ten points. It is not an improvement. Capping pushes conflicting pairs to
+the ceiling; the recall floor then drags the operating point down and buys recall with precision. At a
+\emph{shared} operating point the constrained system is worse in \textbf{9/9} variants, by 0.08 to 0.26
+F1, and the threshold-free measure agrees in \textbf{9/9} (AP mean $-0.054$). Entity-level F1 is worse in
+7/9 (mean $-0.028$); it improves in two, which we report rather than average away. A result that reverses
+under a threshold change is an artefact of the decision rule --- the third time in this study that the same
+artefact hid a real effect.
+
+\textbf{Veto precision collapses as matcher quality rises: 0.749 $\rightarrow$ 0.281.} On the weak matcher
+the veto mostly blocked pairs that were wrong anyway, so it looked precise. On the cross-encoder,
+\textbf{171 of 239} blocked pairs per variant were \emph{genuine matches} --- 72\%. The mechanism is
+obvious in hindsight: a strong matcher's surviving candidates are mostly correct, so a rule that fires on
+textual disagreement can only subtract value. The constraint is a crutch for weak matchers that harms
+strong ones --- a sharper and more generalisable claim than our original hypothesis, and one that no paper
+in our survey makes.
+
+
 \label{sec:variants}
 \input{tables/table_cross_variant}
 
@@ -251,7 +297,10 @@ corner cases) yet degrades steeply as unseen products enter the test split, reac
 bag-of-words co-occurrence model leans on product-specific vocabulary that unseen offers do not reuse, while
 normalised similarity and attribute agreement transfer. Choosing a matcher on one split therefore selects
 the wrong one for the regime the benchmark paper itself identifies as hardest \cite{peeters2024wdc}. The
-entity-level cleanup result is unaffected: it improves in all 18 system-variant cells.
+fine-tuned cross-encoder goes further still: across the same unseen axis it loses only \textbf{1.2 F1
+points} on average, against 24 for word co-occurrence, so the fragility is a property of the lexical
+baseline rather than of the task (Section~\ref{sec:strongbase}). The entity-level cleanup result is
+unaffected: it improves in all 18 system-variant cells.
 
 \subsection{Blocking bounds everything above it}
 \label{sec:blocking}

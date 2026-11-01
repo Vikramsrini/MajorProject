@@ -357,3 +357,23 @@ entity F1 0.1881; best gated cleanup entity F1 0.3829.
   `es_f1 = 0.8472` is therefore optimistic and early stopping is selecting on an inflated signal.
   Test numbers are unaffected (test offers are disjoint). Proper fix: group-split the es slice by
   `cluster_id`. With 3 epochs the effect is small; it matters if epochs are raised.
+
+### Grid confirmation: the single-variant result generalises (8 epochs, all nine variants)
+
+| measure | across nine variants |
+|---|---|
+| AP | constrained system lower in **9/9**, mean **-0.054** |
+| F1 at a shared operating point | lower in **9/9**, mean **-0.19** (range -0.08 to -0.26) |
+| entity-level F1 | lower in **7/9**, mean -0.028 (improves at 50/0 +0.074 and 20/50 +0.039) |
+| veto precision | mean **0.281** (range 0.165-0.333); **171 of 239** blocked pairs per variant were genuine matches |
+
+Two further numbers the grid corrected or added:
+
+* **Base upgrade vs cleanup, like for like.** s3 -> s8 adds **+0.389** entity F1 in 9/9; the best clustering
+  mechanism (gate 0.8) adds **+0.230** to s3 in 9/9. Ratio **1.7x**, not the "more than double" an earlier
+  single-cell reading implied. Matching quality dominates but cleanup is not negligible.
+* **Robustness.** The cross-encoder loses **1.2 F1 points** from 0% to 100% unseen; word co-occurrence loses
+  **24**. The unseen-product fragility is a property of the lexical baseline, not of the task.
+
+Reported rather than averaged away: the constraint *improved* entity F1 in two of nine variants, so the
+claim is "worse in 7/9", not "never helps".
