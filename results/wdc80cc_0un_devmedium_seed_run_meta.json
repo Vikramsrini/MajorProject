@@ -1,0 +1,38 @@
+{
+  "dataset": "wdc80cc_0un_all",
+  "fingerprint": "b02a8ef793c71ce5",
+  "files": {
+    "train": "data/raw/80pair/wdcproducts80cc20rnd000un_train_medium.json.gz",
+    "valid": "data/raw/80pair/wdcproducts80cc20rnd000un_valid_medium.json.gz",
+    "test": "data/raw/80pair/wdcproducts80cc20rnd000un_gs.json.gz"
+  },
+  "counts": {
+    "dataset": "wdc_products_80_0_train",
+    "file": "wdcproducts80cc20rnd000un_train_medium.json.gz",
+    "fingerprint": "255adf3be147dadd",
+    "corner_cases": 80,
+    "unseen": 0,
+    "split": "train",
+    "dev_size": "medium",
+    "n_pairs": 6000,
+    "positives": 1500,
+    "negatives": 4500,
+    "hard_negatives": 3000,
+    "test": {
+      "dataset": "wdc_products_80_0_test",
+      "file": "wdcproducts80cc20rnd000un_gs.json.gz",
+      "fingerprint": "f4663fe14b4acf99",
+      "corner_cases": 80,
+      "unseen": 0,
+      "split": "test",
+      "dev_size": "n/a",
+      "n_pairs": 4500,
+      "positives": 500,
+      "negatives": 4000,
+      "hard_negatives": 3000
+    }
+  },
+  "python": "3.11.16",
+  "er_version": "0.1.0",
+  "with_embeddings": false
+}

@@ -411,3 +411,34 @@ point. A seed is a recorded dimension, not a silent rerun.
 
 **What still needs GPU time.** The cross-encoder is the only genuinely stochastic system, so its
 multi-seed variance has to come from three GPU runs (roughly 3 x 40 min for the nine-variant grid).
+
+## 12. Seed results: 3 seeds x 90% training resample, CPU systems
+
+Run: `--seeds 0,1,2 --train-subsample 0.9`, nine variants, five systems. 837 rows, no failures.
+Reference for deltas: s3 (GBDT + attribute features). Wilcoxon is over nine variant means.
+
+| system | AP wins/9 | mean dAP | Wilcoxon p (AP) | F1 wins/9 | mean dF1 |
+|---|---|---|---|---|---|
+| s1c word co-occ + SVM | 3 | -0.055 | 0.20 | 3 | -0.015 |
+| s1d word co-occ + constraint | 3 | -0.044 | 0.20 | 3 | -0.012 |
+| s4a GBDT + typed veto (asym.) | **0** | **-0.021** | **0.004** | 6 | +0.004 |
+| s5 GBDT + typed + specifiers | 4 | -0.002 | 0.30 | 6 | +0.004 |
+
+Seed spread (std across seeds, mean over variants): AP 0.004 to 0.008, entity F1 0.013 to 0.019.
+
+**Reading.**
+* For the GBDT typed veto (s4a), the AP cost is consistent: lower in 9/9 variants. The mean drop
+  (-0.021) is about 2.5x the seed spread. This is the one claim on the lightweight matcher that
+  survives resampling.
+* For the full constraint (s5), there is no detectable AP effect (4/9, mean -0.002, within spread).
+  The earlier claim that the constraint lowers AP on the lightweight matcher does not hold for s5.
+* The F1 gains of +0.004 are at each system's own threshold, so they are threshold slide, not
+  improvement. A shared-threshold F1 test is needed before saying anything about them.
+* The s1c and s1d rows compare word co-occurrence against GBDT, not against each other, so they
+  show base quality, not the constraint's effect. The constraint effect on word co-occurrence is
+  s1d vs s1c.
+* Warning: for s5 no ceiling in [0.05, 0.45] binds at its operating point, because the recall
+  floor pulls capped pairs back in. The ceiling is inactive there.
+
+The cross-encoder constraint (s9 vs s8) still has only one seed. Its AP result is measured at 9/9
+on seed 0 and needs three GPU runs before it is reported as a seed-robust claim.

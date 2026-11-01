@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Seed-averaged results (mean over seeds, $\pm$ standard deviation across the nine benchmark variants; not the seed spread, which is reported in \texttt{results/seed\_summary.csv}). The last column counts variants in which the system beats the reference on AP --- a paired test on nine points has little power, so the win count is the more honest statistic.}
+\label{tab:seeds}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+ & pair F1 & AP & ECE & AP wins vs ref. \\
+\midrule
+Word co-occurrence + SVM & 0.426\,$\pm$\,0.103 & 0.391\,$\pm$\,0.111 & 0.118 & 3/9 \\
+Word co-occ. + constraint & 0.428\,$\pm$\,0.066 & 0.402\,$\pm$\,0.087 & 0.065 & 3/9 \\
+GBDT + attribute features & 0.440\,$\pm$\,0.037 & 0.446\,$\pm$\,0.054 & 0.083 & -- \\
+GBDT + typed veto (asym.) & 0.444\,$\pm$\,0.038 & 0.425\,$\pm$\,0.049 & 0.063 & 0/9 \\
+GBDT + typed + specifiers & 0.444\,$\pm$\,0.038 & 0.443\,$\pm$\,0.049 & 0.060 & 4/9 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,9 @@
+metric,system,reference,n_variants,mean_delta,std_delta,wins,losses,wilcoxon_p
+f1,s1c_wordcooc_svm,s3_classifier_featattr,9,-0.014771811640978313,0.10866415014942316,3,6,0.49609375
+f1,s1d_wordcooc_constraint,s3_classifier_featattr,9,-0.012177136994393576,0.07370603747944421,3,6,0.65234375
+f1,s4a_typed_veto_asym,s3_classifier_featattr,9,0.003467940652750301,0.006410923205654994,6,3,0.30078125
+f1,s5_full_constraint,s3_classifier_featattr,9,0.003467940652750301,0.006410923205654994,6,3,0.30078125
+auc_pr,s1c_wordcooc_svm,s3_classifier_featattr,9,-0.05528967328420054,0.11997859977711409,3,6,0.203125
+auc_pr,s1d_wordcooc_constraint,s3_classifier_featattr,9,-0.044096498402589356,0.09291752671288722,3,6,0.203125
+auc_pr,s4a_typed_veto_asym,s3_classifier_featattr,9,-0.021110209249536754,0.00874803843561245,0,9,0.00390625
+auc_pr,s5_full_constraint,s3_classifier_featattr,9,-0.002424979466246017,0.009163950625002148,4,5,0.30078125
