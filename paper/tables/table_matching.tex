@@ -1,0 +1,23 @@
+\begin{table}[t]
+\centering
+\caption{Matching results on WDC Products (80\% corner cases, 0\% unseen, medium development set; 4{,}500 test pairs, 500 positives). FNMR is the false-merge rate on the benchmark's own similar-but-different negatives; ECE is quantile-binned expected calibration error.}
+\label{tab:matching}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+System & $\tau$ & Prec. & Rec. & F1 & AP & FNMR & ECE \\
+\midrule
+Token-set similarity & 0.548 & 0.2560 & 0.4940 & 0.3372 & 0.2709 & 0.2390 & 0.3913 \\
+Jaro-Winkler & 0.507 & 0.1426 & 0.4140 & 0.2121 & 0.1449 & 0.3687 & 0.3951 \\
+Word co-occurrence + SVM \cite{peeters2024wdc} & 0.653 & 0.5226 & 0.5080 & \textbf{0.5152} & 0.4766 & 0.0770 & 0.1154 \\
+Word co-occ. + constraint & 0.361 & 0.3727 & 0.6880 & 0.4835 & 0.4447 & 0.1923 & 0.0524 \\
+GBDT, no attr. features & 0.448 & 0.2988 & 0.4320 & 0.3532 & 0.3229 & 0.1687 & 0.0897 \\
+GBDT + attr. features & 0.460 & 0.3267 & 0.4240 & 0.3690 & 0.3539 & 0.1457 & 0.0898 \\
+GBDT + typed veto (asym.) & 0.452 & 0.3267 & 0.4240 & 0.3690 & 0.3467 & 0.1457 & 0.0702 \\
+GBDT + typed veto (sym.) & 0.452 & 0.3267 & 0.4240 & 0.3690 & 0.3478 & 0.1457 & 0.0774 \\
+GBDT + typed + specifiers & 0.452 & 0.3267 & 0.4240 & 0.3690 & 0.3664 & 0.1457 & 0.0671 \\
+Sentence-BERT cosine & 0.521 & 0.2223 & 0.4540 & 0.2985 & 0.2176 & 0.2637 & 0.4030 \\
+SBERT + constraint & 0.208 & 0.1112 & 1.0000 & 0.2001 & 0.2281 & 0.9997 & 0.2901 \\
+\bottomrule
+\end{tabular}
+\end{table}

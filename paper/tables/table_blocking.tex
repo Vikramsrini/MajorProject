@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering
+\caption{Blocking puts a hard ceiling on achievable recall: TPR is the share of the 24{,}019 catalog-wide gold pairs that survive candidate generation (6{,}056 offers, 1{,}000 clusters; all-pairs = 18{,}334{,}540 comparisons).}
+\label{tab:blocking}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+Blocking & setting & comparisons & reduction & TPR & PPC \\
+\midrule
+token block & maxblocksize25skippedtokens1978 & 205,585 & 0.9888 & 0.6812 & 0.0796 \\
+token block & maxblocksize50skippedtokens1088 & 544,304 & 0.9703 & 0.8653 & 0.0382 \\
+token block & maxblocksize100skippedtokens489 & 1,255,241 & 0.9315 & 0.9700 & 0.0186 \\
+token block & maxblocksize250skippedtokens119 & 2,916,224 & 0.8409 & \textbf{0.9957} & 0.0082 \\
+prefix block & prefixlen2skippedtokens0 & 7,777 & 0.9996 & 0.1345 & 0.4155 \\
+prefix block & prefixlen4skippedtokens0 & 30,954 & 0.9983 & 0.3025 & 0.2347 \\
+prefix block & prefixlen6skippedtokens0 & 76,806 & 0.9958 & 0.4340 & 0.1357 \\
+sorted neighborhood & window10 & 54,459 & 0.9970 & 0.0675 & 0.0298 \\
+sorted neighborhood & window30 & 175,189 & 0.9904 & 0.0780 & 0.0107 \\
+sorted neighborhood & window60 & 355,534 & 0.9806 & 0.0907 & 0.0061 \\
+minhash lsh & threshold03numperm64bands64bandsize1 & 33,453 & 0.9982 & 0.3752 & 0.2694 \\
+minhash lsh & threshold05numperm64bands64bandsize1 & 10,104 & 0.9994 & 0.1628 & 0.3870 \\
+minhash lsh & threshold07numperm64bands64bandsize1 & 3,650 & 0.9998 & 0.0726 & 0.4778 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,34 @@
+\begin{table}[t]
+\centering
+\caption{All variants measured so far. The pair-F1 column hides the entity column: the gap between them is the operating-point cost that this paper is about.}
+\label{tab:cross}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+cc/unseen & System & pair F1 & entity F1 & AP \\
+\midrule
+80\%/0\% & Token-set similarity & 0.337 & 0.123 & 0.271 \\
+80\%/0\% & Jaro-Winkler & 0.212 & 0.002 & 0.145 \\
+80\%/0\% & Word co-occurrence + SVM \cite{peeters2024wdc} & 0.515 & 0.326 & 0.477 \\
+80\%/0\% & Word co-occ. + constraint & 0.483 & 0.135 & 0.445 \\
+80\%/0\% & GBDT, no attr. features & 0.353 & 0.166 & 0.323 \\
+80\%/0\% & GBDT + attr. features & 0.369 & 0.188 & 0.354 \\
+80\%/0\% & GBDT + typed veto (asym.) & 0.369 & 0.188 & 0.347 \\
+80\%/0\% & GBDT + typed veto (sym.) & 0.369 & 0.188 & 0.348 \\
+80\%/0\% & GBDT + typed + specifiers & 0.369 & 0.188 & 0.366 \\
+80\%/0\% & Sentence-BERT cosine & 0.298 & 0.110 & 0.218 \\
+80\%/0\% & SBERT + constraint & 0.200 & 0.002 & 0.228 \\
+80\%/50\% & Token-set similarity & 0.394 & 0.183 & 0.354 \\
+80\%/50\% & Jaro-Winkler & 0.237 & 0.002 & 0.156 \\
+80\%/50\% & Word co-occurrence + SVM \cite{peeters2024wdc} & 0.452 & 0.282 & 0.356 \\
+80\%/50\% & Word co-occ. + constraint & 0.444 & 0.131 & 0.378 \\
+80\%/50\% & GBDT, no attr. features & 0.455 & 0.231 & 0.438 \\
+80\%/50\% & GBDT + attr. features & 0.456 & 0.250 & 0.446 \\
+80\%/50\% & GBDT + typed veto (asym.) & 0.456 & 0.250 & 0.420 \\
+80\%/50\% & GBDT + typed veto (sym.) & 0.456 & 0.250 & 0.438 \\
+80\%/50\% & GBDT + typed + specifiers & 0.456 & 0.250 & 0.435 \\
+80\%/50\% & Sentence-BERT cosine & 0.382 & 0.150 & 0.267 \\
+80\%/50\% & SBERT + constraint & 0.200 & 0.002 & 0.299 \\
+\bottomrule
+\end{tabular}
+\end{table}

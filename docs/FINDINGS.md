@@ -157,7 +157,33 @@ pairs among the variant's **6,056 offers / 1,000 product clusters = 24,019 gold 
   product families across the sort order. Kept in the table because reporting a method that underperforms is
   how a benchmark earns trust.
 
-## 5. Bugs found by the data (kept because they are the interesting part)
+## 5. Selective acceptance: what the review band actually buys
+
+The band is defined as `[threshold - 0.10, threshold)` --- exactly the pairs the automatic decision
+rejects but which sit nearest the boundary, i.e. the ones a reviewer could recover. Yield is the share of
+reviewed pairs that are genuine matches. The test-set base rate is 500/4,500 = **0.111**, which is the
+number a band must beat to be worth any human time at all.
+
+| system | threshold | review share | band yield | positives recovered |
+|---|---|---|---|---|
+| s1c word co-occurrence | 0.653 | 0.030 | **0.287** (2.6x base) | 39 |
+| s3 GBDT + attributes | 0.460 | 0.095 | 0.221 (2.0x base) | 94 |
+| s5 s3 + full constraint | 0.452 | 0.076 | 0.199 (1.8x base) | 68 |
+| s1 token-set similarity | 0.548 | **0.592** | **0.095** (below base) | 252 |
+
+Three conclusions:
+
+1. **Calibration is what makes selective acceptance meaningful, not cosmetic.** The raw-similarity band
+   captures 59% of all pairs and its yield (0.095) is *below* the base rate: a reviewer working through it
+   would do worse than picking pairs at random. The trained, temperature-scaled matchers produce bands with
+   1.8-2.6x the base rate at 3-10% workload. This is the strongest evidence in the project for H3.
+2. **The band is small and cheap for good matchers.** 3.0% of pairs (135 of 4,500) recovers 39 missed
+   positives for word co-occurrence. That is a reportable operating recommendation, not a hypothetical.
+3. **The constraint slightly *reduces* band yield** (s3 0.221 -> s5 0.199) while also reducing workload
+   (0.095 -> 0.076): it moves some recoverable pairs out of the band entirely. Consistent with the
+   precision-forward reading of Section 2 --- it is a lever, not a free improvement.
+
+## 6. Bugs found by the data (kept because they are the interesting part)
 
 Each of these would have silently corrupted a paper table:
 
@@ -182,20 +208,20 @@ Each of these would have silently corrupted a paper table:
 10. The benchmark's own filename trap: `wdcproducts80cc20…` means **80% corner cases**, not 20% (proved by
     row counts 19,835/19,607/19,015 vs the paper's Table 1). Reading it wrongly inverts the difficulty axis.
 
-## 6. What this changes in the paper
+## 7. What this changes in the paper
 
 | Zeroth-review claim | Status after measurement |
 |---|---|
 | H1 adaptive text+image weighting | **Dropped.** No licence-clean multimodal ER benchmark exists (`DATASETS.md` §4). |
 | H2 attribute-aware similarity reduces false merges | **Mostly refuted as a hard constraint; survives as soft features.** Typed-attribute veto: +0.5 precision points at fixed threshold. Specifier rules do improve AP (+1.3) but destroy true matches. Must be reported as a precision/recall trade, not a win. |
-| H3 confidence-aware resolution | **Strengthened.** Raw similarity ECE 0.39 vs 0.07-0.12 after training + temperature scaling. This is now the most defensible hypothesis. |
+| H3 confidence-aware resolution | **Strengthened and measured.** Raw similarity ECE 0.39 vs 0.07-0.12 after training + temperature scaling; and only calibrated matchers produce a review band that beats the base rate (0.20-0.29 vs 0.111), while the similarity band sits *below* it (0.095). See Section 5. |
 | "Blocking needed for scale" (was a contribution) | Remains an engineering requirement, now with a measured recall ceiling table. |
 | **New primary contribution** | The pairwise-vs-entity objective mismatch: the F1-optimal threshold produces entity F1 0.108 with 50-record mega-clusters, and the levers that actually matter are base-matcher quality and clustering-stage precision, not scoring constraints. |
 
 **Do not** claim state-of-the-art: our best matcher (0.5152) is the published simple baseline, and published
 fine-tuned transformers reach 0.67-0.73 on the same split.
 
-## 7. Next measurements (in priority order)
+## 8. Next measurements (in priority order)
 
 1. **Fine-tune a real base matcher** (Ditto-style, or at least logistic over our features on the large dev
    set) so the constraint study sits on a competitive matcher; published numbers give the target.
@@ -204,5 +230,5 @@ fine-tuned transformers reach 0.67-0.73 on the same split.
 3. Multiple seeds + paired bootstrap CIs; every number above is currently a single run.
 4. Precision-at-recall curve (not just P@R50) for s3 vs s5 vs s1c vs s1d — the correct way to show a
    precision/recall trade without arguing about thresholds.
-5. Fix the review-band reporting: with the band tied to the threshold, `sel_*` columns measure the workload
-   of recovering near-threshold pairs, which is H3's real test and is not yet interpreted anywhere.
+5. ~~Review-band reporting~~ **done** (Section 5): band tied to the operating point, yield compared against
+   the base rate. Next refinement: sweep the band width rather than fixing it at 0.10.

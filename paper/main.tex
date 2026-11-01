@@ -1,0 +1,286 @@
+% IEEE conference draft. Tables and figures are GENERATED from results/ by
+%   python scripts/make_tables.py && python scripts/make_figures.py
+% Never hand-edit paper/tables/*.tex or figures/*; edit the scripts instead, so a
+% number in this paper can never disagree with the experiment that produced it.
+%
+% Compile with the IEEEtran class (bundled by Overleaf's "IEEE Conference Templates").
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\graphicspath{{../figures/}{figures/}}  % figures are generated; run scripts/make_figures.py
+\usepackage{booktabs}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+
+\begin{document}
+
+\title{Where the Gains Are: Measuring the Pairwise-to-Entity Operating-Point
+Mismatch in Product Entity Resolution}
+
+\author{\IEEEauthorblockN{[Student 1 Name], [Student 2 Name]}
+\IEEEauthorblockA{\textit{Dept.\ of Computer Science and Engineering}\\
+\textit{SRM Institute of Science and Technology}\\
+[City], India\\
+[email, email]}
+}
+
+\maketitle
+
+\begin{abstract}
+Entity-resolution systems are almost always reported at the threshold that maximises
+\emph{pairwise} matching F1, yet the deliverable of an entity-resolution pipeline is a set of
+\emph{resolved entities}. We measure the cost of that mismatch on the WDC Products benchmark. At the
+pairwise-F1-optimal threshold, transitive-closure clustering of a matcher whose pairwise F1 peaks at
+0.387 produces entity-level pairwise F1 of 0.108 with a single cluster containing 50 offers; the same
+matcher at its entity-optimal threshold reaches 0.262, and a label-free transitive-consistency cleanup
+with a confidence gate reaches 0.383 \emph{at the original threshold}, while the largest cluster falls
+from 50 to 4. We also evaluate an attribute- and specifier-constrained scorer intended to prevent merges of
+near-identical variants. It does not survive measurement as a hard constraint: at a fixed operating
+point it changes precision by $+0.5$ points, because every recall-respecting threshold re-admits the
+pairs it capped, and it degrades a strong word co-occurrence baseline from AP 0.477 to 0.445. The same
+evidence as \emph{soft features} does help (AP 0.323\,$\rightarrow$\,0.354). Finally, we show that raw
+string-similarity scores are badly uncalibrated (ECE 0.39) relative to trained matchers after
+temperature scaling (ECE 0.07), which is what makes selective acceptance with a review band tractable.
+Our word co-occurrence baseline reproduces the benchmark's published F1 of 52.66 as 51.52, so the
+protocol is comparable to published results; we claim no state of the art.
+\end{abstract}
+
+\begin{IEEEkeywords}
+entity resolution, entity matching, product matching, clustering, calibration, blocking
+\end{IEEEkeywords}
+
+\section{Introduction}
+The same product appears in a catalogue many times: two sellers describe
+\texttt{Apple iPhone 15, 128GB, Black} and \texttt{iPhone 15 Apple 128 GB Midnight} as one item, while
+\texttt{Apple iPhone 15, 128GB} and \texttt{Apple iPhone 15 Plus 128GB} are two. The second pair is the
+hard one, because it is \emph{more} similar than the first.
+
+Most published matching systems are evaluated by pairwise precision, recall and F1 on a benchmark's
+candidate pairs \cite{peeters2024wdc,li2020ditto}. Production systems do not consume pairwise labels; they
+consume resolved entities. Those two objectives are not maximised at the same decision threshold, and the
+gap is invisible in standard reporting: one bridging false-positive edge merges two entire product
+families, and pairwise metrics charge it once.
+
+This paper measures that gap on a public benchmark, and reports what we tried in order to close it, including
+what did not work.
+
+\textbf{Contributions.}
+\begin{enumerate}
+\item We quantify the pairwise-to-entity operating-point mismatch on WDC Products: at the
+  pairwise-F1-optimal threshold, entity-level F1 is 0.108 versus 0.262 at the entity-optimal threshold, and
+  0.383 after a gated transitive-consistency cleanup at the \emph{unchanged} threshold (Table~\ref{tab:entity}).
+\item We implement attribute- and specifier-constrained scoring and report it as a \emph{negative}
+  result, with a diagnostic we believe is rarely published --- veto precision, i.e.\ the fraction of
+  blocked pairs that were genuine matches (0.62--0.75). We show why the constraint is structurally inert:
+  capping costs recall, so any threshold that satisfies a recall floor re-admits the capped pairs.
+\item We show that the same evidence is worth more as soft features than as a hard veto, and that raw
+  similarity is nowhere near calibrated (ECE 0.39 versus 0.07 after training and temperature scaling).
+\item We bound every downstream result with a catalog-wide blocking study (Table~\ref{tab:blocking}), and
+  release a reproducible pipeline whose tables and figures are generated from the experiment CSVs.
+\end{enumerate}
+
+\section{Related Work}
+\textbf{Matching.} Transformer-based matchers dominate recent results: Ditto serialises records for
+cross-encoder fine-tuning \cite{li2020ditto}, JointBERT adds an entity-identification objective \cite{peeters2021jointbert}, and
+supervised contrastive pre-training improves product matching \cite{peeters2022supcon}. Prompted and
+fine-tuned LLMs now match or beat fine-tuned PLMs with far less supervision and are more robust to unseen
+entities \cite{peeters2023llm,steiner2025finetune}, while AnyMatch reaches competitive quality with a
+small language model at a fraction of the inference cost \cite{zhang2024anymatch}. A controlled study finds
+cross-encoders consistently ahead of bi-encoders and generative matching not universally better
+\cite{zhang2026beyond}. Our contribution is not a new matcher; we use published baselines as the floor.
+
+\textbf{Blocking.} Pre-trained embeddings for blocking were analysed at scale by Zeakis et al.\
+\cite{zeakis2023embeddings}; learned LSH targets the same trade-off \cite{wang2024nlsh}. Blocking quality is
+increasingly recognised as a first-class object of study, including its biases \cite{moslemi2024blocking},
+which is the venue precedent for the evaluation in Section~\ref{sec:blocking}.
+
+\textbf{Beyond the pair.} Multi-source work shows that a handful of false-positive edges corrupt large
+groups: GraLMatch cleans the pairwise graph with structural signals \cite{dmeer2025gralmatch} and
+TransClean removes false positives label-free via transitive consistency \cite{dmeer2025transclean}. Our
+cleanup is a gated reproduction of that idea, not a novelty claim. Clustering directly with LLMs
+\cite{fu2026llmcer} and budgeted graph label propagation \cite{wang2026alper} push the same frontier.
+
+\textbf{Confidence.} Calibration in entity matching is barely developed: Kamsteeg et al.\ report mild
+overconfidence with ECE up to 0.055 and gains from temperature scaling \cite{kamsteeg2025calibration};
+decision-model matchers are well-calibrated only for the strongest models \cite{steiner2026decision}.
+We adopt that line and connect it to review workload.
+
+\section{Method}
+\subsection{Pipeline}
+Records are normalised conservatively (de-accenting, separator and punctuation folding) deliberately
+\emph{without} aggressive stop-word removal, because the tokens that distinguish variants are exactly the
+ones a generic normaliser discards. Candidate pairs come from blocking (Section~\ref{sec:blocking}). A
+matcher scores each pair; scores are temperature-scaled on the validation split; a decision threshold is
+applied; accepted edges are clustered by union-find, optionally preceded by transitive-consistency cleanup.
+
+\subsection{Attribute and specifier constraints}
+Let $A(r)$ be the attributes stated by record $r$: brand, model family, variant, capacity, quantity, plus
+\emph{unit-qualified numeric specifiers} extracted as $\{\text{unit}: \text{values}\}$, e.g.\
+\texttt{mm}$\{50\}$, \texttt{f}$\{1.4\}$, \texttt{tb}$\{4\}$. Keying on the unit rather than the whole token
+makes comparison robust to spacing, slashes and word order, and lets model codes such as
+\texttt{st4000ne001} versus \texttt{st6000ne001} be compared without a catalogue of identifiers.
+
+A conflict set $C(r_i,r_j)$ collects attributes stated on both sides with different values, optionally also
+one-sided statements (asymmetric mode), with a waiver when one title's tokens are contained in the other.
+The score is then capped:
+\begin{equation}
+s'(r_i,r_j)=\min\big(s(r_i,r_j),\ \kappa\big)\quad\text{if } C(r_i,r_j)\neq\varnothing,
+\end{equation}
+with ceiling $\kappa$ tuned on validation. We cap rather than delete so that candidate-set sizes, and
+therefore Recall@K and every denominator, stay honest.
+
+\subsection{Operating point}
+Maximising F1 on validation is the standard rule and is the wrong rule for a constraint study: when a
+mechanism removes false positives, an F1-optimal threshold slides downward and reads comparable noise back
+in. All systems therefore use one precision-forward rule --- maximise precision subject to
+recall $\ge 0.5$, ties broken toward the \emph{strictest} threshold --- and, for constrained systems, we
+additionally report every result at the unconstrained baseline's threshold. Recording the rule name per row
+is what exposes the degenerate case in Section~\ref{sec:negative}.
+
+\subsection{Cleanup}
+For an open wedge $b \leftarrow a \rightarrow c$ with $b$,$c$ unlinked, the weaker bridging edge is a
+suspect false positive. We drop it \emph{only if} its score is below a gate $\gamma$; when both edges are
+confident the violation is more plausibly a missing edge than a false merge, and dropping anyway would
+destroy recall on a guess. Violations are detected per pass against one graph snapshot and applied
+synchronously, so the result does not depend on traversal order. $\gamma$ is reported as a sweep, not a
+constant.
+
+\section{Experimental Setup}
+\textbf{Data.} WDC Products \cite{peeters2024wdc}, pair-wise format, 11{,}715 offers describing 2{,}162
+products, with the benchmark's own splits: three corner-case levels (20/50/80\%), three unseen-product
+levels (0/50/100\%) and three development-set sizes. Headline setting: 80\% corner cases, 0\% unseen,
+medium development set (6{,}000 train / 3{,}500 valid / 4{,}500 test pairs, 500 positives, 3{,}000
+benchmark-flagged hard negatives). Two file-naming traps are documented in the release: the corner-case
+ratio is the filename \emph{prefix}, and \texttt{\_gs} files are the test splits.
+
+\textbf{Systems.} Table~\ref{tab:matching}: string similarity, a word co-occurrence + linear SVM baseline,
+a gradient-boosted classifier over our feature families with and without attribute features, a Sentence
+Transformer bi-encoder \cite{reimers2019sbert}, each optionally wrapped in the constraint layer.
+
+\textbf{Protocol.} Fit on train, calibrate and choose the operating point on validation, evaluate on test.
+Threshold-free metrics (AP) are reported alongside threshold metrics because thresholds are not comparable
+across systems once each has its own temperature.
+
+\textbf{Reproducibility.} Every result row carries a 16-hex-digit fingerprint of the record set; tables and
+figures are generated from the CSVs; 39 unit/integration tests guard the primitives, including row-count
+checks against the benchmark paper's own statistics table.
+
+\section{Results}
+
+\subsection{Protocol validation}
+Our word co-occurrence baseline reaches F1 51.52 against the benchmark paper's published 52.66 on the same
+split --- a 1.14-point difference. This is the load-bearing sanity check of the paper: it makes our other
+rows comparable to published numbers. It equally establishes that our own feature classifier (36.90) sits
+fifteen points \emph{below} that simple baseline, so nothing here is claimed as state of the art, and
+published fine-tuned transformers on this split reach 0.67--0.73 \cite{peeters2024wdc}.
+
+\input{tables/table_matching}
+
+Zero-shot bi-encoder cosine (AP 0.218) is worse than token-set similarity (AP 0.271) here: over
+\texttt{title + description} the seller boilerplate dilutes the identity signal. It is not the Ditto number
+and must not be read as one.
+
+\subsection{The constraint does not survive as a hard veto}
+\label{sec:negative}
+At the unconstrained baseline's own operating point, the constraint moves precision by $+0.5$ points and
+false positives by $-17$ of 437. On the stronger word co-occurrence base it \emph{hurts}: AP falls from
+0.477 to 0.445 and entity-level F1 from 0.326 to 0.135. The mechanism is structural. Capping costs recall,
+because many genuine matches also appear to conflict (one title is simply shorter). Every threshold that
+satisfies the recall floor therefore re-admits the pairs the veto had blocked, and the constraint cancels
+itself --- all constrained systems logged that no ceiling in $\{0.05,\dots,0.45\}$ binds at its operating
+point. The SBERT variant is the instructive failure: it flagged 3{,}321 of 4{,}500 test pairs (74\%), the
+operating point collapsed to ``accept everything'', and clustering produced one cluster containing all
+1{,}000 products (entity F1 0.002). A constraint that fires on three quarters of candidates is not a
+constraint.
+
+The diagnostic that makes this legible is \emph{veto precision}: among effectively blocked pairs, 62--75\%
+were correctly blocked, i.e.\ between 24 and 184 genuine matches were destroyed per configuration. The most active rule
+is also the weakest: one-sided variant absence fires 1{,}398 times, mostly detecting truncation rather than
+difference of product. Symmetric-only firing (stated versus stated) is 4$\times$ rarer and correspondingly
+less destructive. Attribute evidence does pay for itself as \emph{soft features}: AP 0.323 to 0.354, and
+hard-negative false merges from 16.9\% to 14.6\%.
+
+\subsection{Entity resolution is where the effect is}
+\label{sec:entity}
+\input{tables/table_entity}
+
+Table~\ref{tab:entity} is the headline. At the threshold that maximises pairwise F1, union-find over the
+accepted edges yields entity-level pairwise F1 of 0.108 with a single 50-offer cluster; the entity-optimal
+threshold lifts it by 2.4x to 0.262; and the gated cleanup reaches 0.383 at the \emph{unchanged} threshold while
+shrinking the largest cluster to 4. The gate earns its place: with the gate disabled, cleanup discards
+almost every violable edge and the resulting entity F1 is an artefact, which we found by reading our own
+numbers sceptically.
+
+Cleanup buys precision with recall --- 0.491 versus 0.314 at $\gamma=0.8$, having reduced 1{,}080 accepted
+edges to 315 --- and it is a reproduction of published ideas \cite{dmeer2025transclean,dmeer2025gralmatch},
+not a novelty claim. Its value here is diagnostic: it makes the operating-point cost measurable.
+
+\subsection{Robustness across benchmark variants}
+\label{sec:variants}
+\input{tables/table_cross_variant}
+
+Table~\ref{tab:cross} reports every variant measured so far. The two columns are the point of the figure:
+for the same matcher, pair F1 and entity F1 are not close, and the distance between them changes with the
+corner-case and unseen-product levels. The unseen-product axis is where the benchmark paper itself reports
+the largest degradations \cite{peeters2024wdc}, which is why we report it rather than a single split.
+
+\subsection{Blocking bounds everything above it}
+\label{sec:blocking}
+\input{tables/table_blocking}
+
+Defining gold catalog-wide (24{,}019 intra-cluster pairs among 6{,}056 offers; all-pairs = 18{,}334{,}540),
+token blocking preserves 99.6\% of gold pairs at 2.9M comparisons and only 68.1\% at 206k. No matcher can
+recover what blocking discards, which is why recall must be reported per stage. Sorted-neighbourhood
+blocking is the weakest method tested (TPR 0.07--0.09): keying on the rarest token splits product families
+across the sort order.
+
+\subsection{Calibration}
+\label{sec:calibration}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_reliability}
+\caption{Reliability of the constrained classifier's match probabilities after temperature scaling on
+validation. Raw string-similarity scores in the same protocol reach ECE 0.39, versus 0.07 for this
+matcher.}
+\label{fig:reliability}
+\end{figure}
+
+A similarity score is not a probability: token-set and Jaro-Winkler scores reach ECE 0.391 and 0.395,
+whereas the trained matchers after temperature scaling sit at 0.067--0.115 (Table~\ref{tab:matching}), and
+the constraint layer improves calibration rather than harming it. This is the empirical basis for selective
+acceptance, and the band is worth measuring rather than assuming. Defining it as the interval immediately
+below the operating point, the test-set base rate is 0.111, so a band whose precision sits at or below that
+value is not worth any reviewer's time. For word co-occurrence the band covers 3.0\% of pairs at yield 0.287
+(2.6$\times$ base) and recovers 39 missed positives; for the GBDT matchers, 7.6--9.5\% of pairs at yield
+0.199--0.221 (1.8--2.0$\times$). For raw token-set similarity the band swallows 59.2\% of all pairs at yield
+0.095 --- \emph{below} random selection. Calibration is thus the property that makes abstention usable at
+all, which is the substantive content of our confidence-aware claim.
+
+\section{Limitations}
+Single benchmark family; English-language schema.org offers from 2020. The base matcher is deliberately
+not state of the art, so constraint effects are measured on a weak floor --- we report the word
+co-occurrence variant for exactly that reason. No fine-tuned cross-encoder and no LLM matcher in the loop.
+The attribute extractor is rule-based with a domain-neutral lexicon; a per-category lexicon would change
+the numbers. Cleanup is a reproduction. Every number is a single seed; confidence intervals are future
+work. We do not claim novelty for transitive consistency, and we withdrew an initially promising but
+incorrect cleanup result after finding that the gate was a no-op. Multimodal matching is not evaluated at
+all: our dataset audit found no 2023--2026 product-matching benchmark with images whose licence permits
+publication, so we treat it as blocked on data rather than as an untested hypothesis.
+
+\section{Conclusion}
+Report pairwise F1 and you may be shipping a catalogue in which 50 unrelated offers collapse into one
+product. The objective that matters is reached by choosing the threshold for that objective, by keeping
+base-matcher quality first, and by treating the clustering stage as a measured part of the system. Hard
+attribute constraints, whatever their intuitive appeal, did not earn their place at a fixed operating point;
+the same evidence as features did. Future work: a competitive fine-tuned base matcher, confidence intervals
+across all nine benchmark variants, precision-at-recall curves in place of single operating points, and a
+licence-clean multimodal dataset.
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\end{document}

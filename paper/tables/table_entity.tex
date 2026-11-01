@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering
+\caption{Entity-level quality at the threshold that maximises \emph{pairwise} F1 (s3_classifier_featattr). The same matcher, evaluated on the objective a catalog owner actually cares about, degrades by 2.4x to 3.5x depending on the mechanism chosen; the cleanup gate recovers it by refusing to guess when both bridging edges are confident.}
+\label{tab:entity}
+\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+Clustering & ent-P & ent-R & ent-F1 & max $|C|$ & $\tau_{\mathrm{pw}}$ & best F1 & $\tau_{\mathrm{best}}$ \\
+\midrule
+union-find (no cleanup) & 0.0580 & 0.7800 & 0.1080 & 50 & 0.36 & 0.2618 & 0.59 \\
+gate 0.4 & 0.0774 & 0.6800 & 0.1389 & 36 & 0.36 & 0.2618 & 0.59 \\
+gate 0.6 & 0.2896 & 0.3880 & 0.3316 & 10 & 0.36 & 0.3584 & 0.01 \\
+gate 0.8 & 0.4906 & 0.3140 & \textbf{0.3829} & 4 & 0.36 & 0.4158 & 0.01 \\
+\bottomrule
+\end{tabular}
+\end{table}

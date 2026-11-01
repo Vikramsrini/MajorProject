@@ -1,0 +1,176 @@
+% Every entry below was resolved against its own landing page (arXiv abs, ACL Anthology,
+% openproceedings.org, or the publisher DOI) during the literature survey on 1 Nov 2026.
+% DO NOT add an entry you have not resolved: an unverifiable citation in a submitted paper
+% is a desk-reject risk, not a formatting detail.
+%
+% The survey that motivated this work is restricted to 2023-2026 (see
+% docs/LITERATURE_SURVEY.md). The few pre-2023 entries here are unavoidable because they
+% are the systems the WDC Products benchmark itself reports as baselines (Ditto, Magellan-era
+% matchers, Sentence-BERT). Marking them here keeps that exception honest and visible.
+
+@inproceedings{peeters2024wdc,
+  author    = {Peeters, Ralph and Der, Reng Chiz and Bizer, Christian},
+  title     = {{WDC} Products: A Multi-Dimensional Entity Matching Benchmark},
+  booktitle = {Proceedings of the International Conference on Theory and Practice of
+               Electronic Databases (EDBT)},
+  year      = {2024},
+  note      = {Preprint arXiv:2301.09521. Dataset:
+               \url{https://webdatacommons.org/largescaleproductcorpus/wdc-products/}}
+}
+
+@article{li2020ditto,
+  author  = {Li, Yuliang and Li, Jielong and Suhara, Yeye and Doan, An and Tan, Wang-Chiew},
+  title   = {Deep Entity Matching with Pre-Trained Language Models},
+  journal = {Proceedings of the VLDB Endowment},
+  volume  = {14},
+  number  = {1},
+  pages   = {50--60},
+  year    = {2020},
+  doi     = {10.14778/3421424.3421431},
+  note    = {Pre-2023; cited as a benchmark baseline.}
+}
+
+@inproceedings{peeters2021jointbert,
+  author    = {Peeters, Ralph and Bizer, Christian},
+  title     = {Dual-Objective Fine-Tuning of {BERT} for Entity Matching},
+  booktitle = {Proceedings of the VLDB Endowment},
+  volume    = {14},
+  number    = {10},
+  pages     = {1913--1921},
+  year      = {2021},
+  note      = {Pre-2023; cited as related work.}
+}
+
+@inproceedings{peeters2022supcon,
+  author    = {Peeters, Ralph and Bizer, Christian},
+  title     = {Supervised Contrastive Learning for Product Matching},
+  booktitle = {Companion Proceedings of the Web Conference (WWW)},
+  pages     = {248--251},
+  year      = {2022},
+  doi       = {10.1145/3487553.3524254},
+  note      = {Pre-2023; cited as the R-SupCon baseline of the benchmark.}
+}
+
+@inproceedings{reimers2019sbert,
+  author    = {Reimers, Nils and Gurevych, Iryna},
+  title     = {Sentence-{BERT}: Sentence Embeddings Using Siamese {BERT}-Networks},
+  booktitle = {Proceedings of EMNLP-IJCNLP},
+  year      = {2019},
+  doi       = {10.18653/v1/D19-1410},
+  note      = {Pre-2023; the bi-encoder used in our embedding baseline.}
+}
+
+@article{peeters2023llm,
+  author  = {Peeters, Ralph and Steiner, Aaron and Bizer, Christian},
+  title   = {Entity Matching using Large Language Models},
+  journal = {arXiv preprint arXiv:2310.11244},
+  year    = {2023},
+  note    = {Published at EDBT 2025.}
+}
+
+@inproceedings{steiner2025finetune,
+  author    = {Steiner, Aaron and Peeters, Ralph and Bizer, Christian},
+  title     = {Fine-Tuning Large Language Models for Entity Matching},
+  booktitle = {IEEE International Conference on Data Engineering Workshops (ICDEW)},
+  year      = {2025},
+  doi       = {10.1109/ICDEW67478.2025.00006},
+  note      = {Preprint arXiv:2409.08185.}
+}
+
+@article{zhang2024anymatch,
+  author  = {Zhang, Zhuohan and Groth, Paul and Calixto, Ivan and Schelter, Sebastian},
+  title   = {{AnyMatch}: Efficient Zero-Shot Entity Matching with a Small Language Model},
+  journal = {arXiv preprint arXiv:2409.04073},
+  year    = {2024}
+}
+
+@article{zhang2026beyond,
+  author  = {Zhang, Zhuohan and Li, Xinran and Calixto, Ivan and Groth, Paul and Schelter, Sebastian},
+  title   = {Beyond Scale and Generation: Understanding Language Model-based Entity Matching},
+  journal = {arXiv preprint arXiv:2607.24688},
+  year    = {2026}
+}
+
+@article{zeakis2023embeddings,
+  author  = {Zeakis, Afshin and Papadakis, Grigoris and Skoutas, Dimitris and Koubarakis, Manolis},
+  title   = {Pre-Trained Embeddings for Entity Resolution: An Experimental Analysis},
+  journal = {Proceedings of the VLDB Endowment},
+  volume  = {16},
+  number  = {9},
+  pages   = {2225--2238},
+  year    = {2023},
+  doi     = {10.14778/3598581.3598594}
+}
+
+@inproceedings{wang2024nlsh,
+  author    = {Wang, Ruitong and Zhang, Yong},
+  title     = {Neural Locality Sensitive Hashing for Entity Blocking},
+  booktitle = {Proceedings of the SIAM International Conference on Data Mining (SDM)},
+  year      = {2024},
+  doi       = {10.1137/1.9781611978032.101},
+  note      = {Preprint arXiv:2401.18064.}
+}
+
+@inproceedings{moslemi2024blocking,
+  author    = {Moslemi, Mohammad Mehdi and Balamurugan, Harini and Milani, Mahdi},
+  title     = {Evaluating Blocking Biases in Entity Matching},
+  booktitle = {IEEE International Conference on Big Data (BigData)},
+  year      = {2024},
+  doi       = {10.1109/BigData62323.2024.10825531},
+  note      = {Preprint arXiv:2409.16410. Venue precedent for blocking-focused ER work.}
+}
+
+@inproceedings{dmeer2025gralmatch,
+  author    = {de Meer Pardo, Fernando and Lehmann, Claus and Gehrig, Dimitri and Nagy, Attila and
+               Nicoli, Stefano and Hadji Misheva, Blagovesta and Braschler, Mirko and Stockinger, Kurt},
+  title     = {{GraLMatch}: Matching Groups of Entities with Graphs and Language Models},
+  booktitle = {Proceedings of the International Conference on Theory and Practice of
+               Electronic Databases (EDBT)},
+  year      = {2025},
+  doi       = {10.48786/EDBT.2025.75},
+  note      = {Preprint arXiv:2406.15015.}
+}
+
+@article{dmeer2025transclean,
+  author  = {de Meer Pardo, Fernando and Hadji Misheva, Blagovesta and Braschler, Mirko and
+             Stockinger, Kurt},
+  title   = {{TransClean}: Finding False Positives in Multi-Source Entity Matching under
+             Real-World Conditions via Transitive Consistency},
+  journal = {IEEE Access},
+  year    = {2025},
+  doi     = {10.1109/ACCESS.2025.3632400},
+  note    = {Preprint arXiv:2506.04006. Our cleanup is a gated reproduction of this idea.}
+}
+
+@article{fu2026llmcer,
+  author  = {Fu, Jinyang and Tang, Heng and Khan, Aamir and Mehrotra, Sharad and Ke, Yuan and Gao, Yunitao},
+  title   = {In-context Clustering-based Entity Resolution with Large Language Models:
+             A Design Space Exploration},
+  journal = {arXiv preprint arXiv:2506.02509},
+  year    = {2025},
+  note    = {Accepted at SIGMOD 2026.}
+}
+
+@article{wang2026alper,
+  author  = {Wang, Haoyu and Yang, Rui and Zheng, Xiao},
+  title   = {Adaptive Graph Refinement and Label Propagation with {LLMs} for Cost-Effective
+             Entity Resolution},
+  journal = {arXiv preprint arXiv:2605.25814},
+  year    = {2026}
+}
+
+@inproceedings{kamsteeg2025calibration,
+  author    = {Kamsteeg, I. and Cardenas-Cartagena, J. and van Beers, F. and ten Holt, G. and
+               Tashu, T. M. and Valdenegro-Toro, M.},
+  title     = {Confidence Calibration in Large Language Model-Based Entity Matching},
+  booktitle = {Proceedings of UncertaiNLP, workshop at EMNLP},
+  year      = {2025},
+  note      = {Preprint arXiv:2509.19557. Reports ECE for ER matchers and temperature scaling gains.}
+}
+
+@article{steiner2026decision,
+  author  = {Steiner, Aaron and Peeters, Ralph and Bizer, Christian},
+  title   = {Entity Matching using Decision Models},
+  journal = {arXiv preprint arXiv:2610.34626},
+  year    = {2026}
+}
