@@ -382,3 +382,32 @@ Two further numbers the grid corrected or added:
 
 Reported rather than averaged away: the constraint *improved* entity F1 in two of nine variants, so the
 claim is "worse in 7/9", not "never helps".
+
+## 11. Seeds: what "three seeds" actually means for this pipeline
+
+Every system was run at seed 0 and seed 1 on 80%/0%. The results were identical to the last
+printed digit: F1 0.369017 in both, threshold 0.653036 versus 0.653037. The cause is not a bug
+in the seed plumbing (the seed reaches the classifier) --- it is that **none of the CPU systems
+contains a stochastic component**:
+
+| system | stochastic? | why |
+|---|---|---|
+| token-set, Jaro-Winkler | no | pure string functions |
+| word co-occurrence + LinearSVC | no | convex objective, deterministic solver |
+| GBDT (`HistGradientBoostingClassifier`) | no in practice | `max_features=None`, and `early_stopping='auto'` disables the validation split at this sample size |
+| Sentence-BERT + PCA | no | PCA `random_state` fixed, encoder inference deterministic |
+| fine-tuned cross-encoder | **yes** | weight initialisation, dropout, batch order |
+
+**Consequence.** Reporting "mean $\pm$ std over 3 seeds" for the CPU systems would have produced
+0.000 spread --- true, but misleading: it would describe optimiser determinism while a reader
+would read it as evidence about generalisation. The variance a reviewer actually asks about is
+sensitivity to the *training sample*, so it is introduced deliberately: each seed resamples 90% of
+the training pairs (`--train-subsample 0.9`). That measures generalisation variance rather than
+optimiser noise, and it is the comparison that can falsify "the constraint helps".
+
+**Also enforced.** `--seeds` writes the seed into every result row, and fitted weights plus the
+reference threshold are cleared between seeds, so one seed can never inherit another's operating
+point. A seed is a recorded dimension, not a silent rerun.
+
+**What still needs GPU time.** The cross-encoder is the only genuinely stochastic system, so its
+multi-seed variance has to come from three GPU runs (roughly 3 x 40 min for the nine-variant grid).

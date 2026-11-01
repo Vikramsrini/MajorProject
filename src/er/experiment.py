@@ -131,6 +131,7 @@ def run_system(
     ref_threshold: float | None = None,
     min_recall: float = 0.5,
     base_matcher: object | None = None,
+    seed: int | None = None,
 ) -> tuple[list[dict], PairTable, object]:
     """Fit, calibrate and evaluate one system; returns tidy rows + scored pairs + matcher.
 
@@ -261,6 +262,7 @@ def run_system(
         "positives": int(test.labeled.frame["label"].sum()),
         "temperature": temp,
         "native_threshold": thr,
+        "seed": seed,
         "ceiling_used": ceiling_used,
         "veto_binds_valid": n_effective_valid,
         "op_rule": valid_op.get("rule"),

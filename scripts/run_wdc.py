@@ -33,7 +33,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from er.experiment import SystemSpec, run_system, reliability_rows  # noqa: E402
 from er.io import load_wdc_products_pairwise, wdc_index  # noqa: E402
-from er.schema import Dataset  # noqa: E402
+from er.schema import Dataset, PairTable  # noqa: E402
 
 import er  # noqa: E402
 
@@ -65,7 +65,7 @@ def find_files(data_dir: Path, corner: int, unseen: int) -> dict[str, Path]:
 
 
 def specs(with_embeddings: bool, with_crossencoder: bool = False, model: str = "roberta-base",
-          epochs: int = 3, max_steps: int | None = None) -> list[SystemSpec]:
+          epochs: int = 3, max_steps: int | None = None, seed: int = 0) -> list[SystemSpec]:
     s = [
         SystemSpec("s1_similarity_tokenset", "similarity", {"metric": "token_set"}, group="baseline"),
         SystemSpec("s1b_similarity_jaro", "similarity", {"metric": "jaro_winkler"}, group="baseline"),
@@ -119,7 +119,7 @@ def specs(with_embeddings: bool, with_crossencoder: bool = False, model: str = "
         ce_base = {
             "model": model,
             "epochs": epochs,
-            "seed": 0,
+            "seed": seed,
         }
         if max_steps:
             ce_base["max_steps"] = max_steps
@@ -138,6 +138,10 @@ def specs(with_embeddings: bool, with_crossencoder: bool = False, model: str = "
                 group="ours",
             ),
         ]
+    # Every stochastic component reads this from the spec, so one seed value flows
+    # through the classifier, the embedding PCA and any fine-tuned model.
+    for spec in s:
+        spec.base.setdefault("seed", seed)
     return s
 
 
@@ -158,6 +162,13 @@ def main() -> None:
     ap.add_argument("--no-description", action="store_true", help="serialize title only")
     ap.add_argument("--tag-suffix", default="",
                     help="suffix for output filenames, e.g. '_ce' so GPU runs do not overwrite CPU rows")
+    ap.add_argument("--seeds", default="0",
+                    help="comma-separated seeds, e.g. '0,1,2'; each row records the seed that produced it")
+    ap.add_argument("--train-subsample", type=float, default=1.0,
+                    help="fraction of TRAIN pairs resampled per seed (e.g. 0.9). Required for "
+                         "meaningful variance: our deterministic learners give byte-identical "
+                         "results across seeds, so only resampling the training data produces "
+                         "run-to-run spread that reflects generalisation, not optimiser noise")
     ap.add_argument("--only-systems", default=None,
                     help="comma-separated system names to run (default: all); use with a tag suffix")
     args = ap.parse_args()
@@ -207,7 +218,27 @@ def main() -> None:
     # can see the constraint's effect without the threshold sliding to hide it.
     REFERENCE = "s3_classifier_featattr"
     EMB_REFERENCE = "s6_sbert_cosine"
-    for spec in specs(args.with_embeddings, args.with_crossencoder, args.model, args.epochs, args.max_steps):
+    # Seeds are a recorded dimension, not a silent rerun: every row carries the seed
+    # that produced it, so variance can be reported instead of assumed away.
+    seeds = [int(x) for x in str(args.seeds).split(",") if x.strip()]
+    plan = [
+        (sd, sp)
+        for sd in seeds
+        for sp in specs(
+            args.with_embeddings, args.with_crossencoder, args.model, args.epochs,
+            args.max_steps, seed=sd,
+        )
+    ]
+    cur_seed: int | None = None
+    for seed, spec in plan:
+        if seed != cur_seed:
+            # fitted weights and reference thresholds are per-seed; carrying them across
+            # seeds would let one seed's operating point leak into another's rows.
+            fitted.clear()
+            chosen_thr.clear()
+            cur_seed = seed
+            if len(seeds) > 1:
+                print(f"\n===== seed {seed} ({len(seeds)} seeds) =====")
         if args.only_systems:
             wanted = {x.strip() for x in args.only_systems.split(",") if x.strip()}
             if spec.name not in wanted:
@@ -226,10 +257,18 @@ def main() -> None:
                 print(f"  note: reference {ref_name} not run yet; skipping ref-threshold slice", file=sys.stderr)
             if base_matcher is not None:
                 print(f"  reusing fitted base from {ref_name} (no refit)")
+        # Deterministic learners (similarity, SVM, GBDT, SBERT) are invariant to the
+        # random seed, so resampling the training pairs is the only way to obtain
+        # variance that means anything. See docs/FINDINGS.md.
+        tr_fit = tr
+        if args.train_subsample < 1.0:
+            n = max(2, int(round(args.train_subsample * len(tr.labeled.frame))))
+            sub = tr.labeled.frame.sample(n=n, random_state=seed).reset_index(drop=True)
+            tr_fit = PairTable(sub, {**tr.meta, "subsample": args.train_subsample, "n_fit_pairs": n})
         try:
             r, scored, fitted_matcher = run_system(
-                spec, ds, tr, va, te, embeddings=embeddings, ref_threshold=ref,
-                base_matcher=base_matcher,
+                spec, ds, tr_fit, va, te, embeddings=embeddings, ref_threshold=ref,
+                base_matcher=base_matcher, seed=seed,
             )
             rows.extend(r)
             scored_store[spec.name] = scored
