@@ -69,8 +69,11 @@ code(
     """
 import os, sys, subprocess, pathlib, platform
 
-IN_COLAB = "google.colab" in sys.modules or os.path.isdir("/content")
 IN_KAGGLE = os.path.isdir("/kaggle")
+# Check Kaggle FIRST: some Kaggle images also have /content, which made the old
+# `os.path.isdir("/content")` test report Colab on Kaggle and then call a
+# Colab-only download that fails with "JavaScript Error: download is not defined".
+IN_COLAB = (not IN_KAGGLE) and ("google.colab" in sys.modules or os.path.isdir("/content"))
 print("colab:", IN_COLAB, "| kaggle:", IN_KAGGLE, "| python:", platform.python_version())
 
 # --- point this at your project -------------------------------------------------
@@ -269,21 +272,31 @@ md("## 6. Collect results")
 
 code(
     """
-import shutil, glob
-stamp = pathlib.Path(f"/content/ce_results_{MODEL.replace('/','_')}" if IN_COLAB
-                     else f"/kaggle/working/ce_results")
-stamp.mkdir(exist_ok=True)
+import shutil, pathlib
+
+stamp = pathlib.Path("/content/ce_results" if IN_COLAB else "/kaggle/working/ce_results")
+stamp.mkdir(parents=True, exist_ok=True)
 files = sorted(RESULTS.glob(f"*{SUFFIX}_results.csv"))
 for f in files:
     shutil.copy(f, stamp / f.name)
 print(f"{len(files)} result files copied to {stamp}")
+assert files, "no result files found - check SUFFIX matches the suffix used for the run"
+
+# Always produce a zip in a durable location. A draft session's /content is lost when
+# the session stops, and an auto-download can fail for frontend reasons; the zip on disk
+# is what makes the results recoverable either way.
+zip_base = pathlib.Path("/kaggle/working" if IN_KAGGLE else "/content") / "ce_results"
+zip_path = shutil.make_archive(str(zip_base), "zip", stamp)
+print("zip:", zip_path, round(pathlib.Path(zip_path).stat().st_size / 1e6, 2), "MB")
+
 if IN_COLAB:
-    shutil.make_archive("/content/ce_results", "zip", stamp)
-    from google.colab import files as colab_files
-    colab_files.download("/content/ce_results.zip")
+    try:
+        from google.colab import files as colab_files
+        colab_files.download(zip_path)
+    except Exception as exc:  # noqa: BLE001
+        print("auto-download unavailable, fetch the zip manually:", exc)
 else:
-    shutil.make_archive("/kaggle/working/ce_results", "zip", stamp)
-    print("download /kaggle/working/ce_results.zip from the Output tab")
+    print("download ce_results.zip from the Output pane (/kaggle/working)")
 """
 )
 

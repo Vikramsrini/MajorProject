@@ -31,26 +31,22 @@ Mismatch in Product Entity Resolution}
 \maketitle
 
 \begin{abstract}
-Entity-resolution systems are almost always reported at the threshold that maximises
-\emph{pairwise} matching F1, yet the deliverable of an entity-resolution pipeline is a set of
-\emph{resolved entities}. We measure the cost of that mismatch on the WDC Products benchmark. At the
-pairwise-F1-optimal threshold, transitive-closure clustering of a matcher whose pairwise F1 peaks at
-0.387 produces entity-level pairwise F1 of 0.108 with a single cluster containing 50 offers; the same
-matcher at its entity-optimal threshold reaches 0.262, and a label-free transitive-consistency cleanup
-with a confidence gate reaches 0.383 \emph{at the original threshold}, while the largest cluster falls
-from 50 to 4. We also evaluate an attribute- and specifier-constrained scorer intended to prevent merges of
-near-identical variants. It does not survive measurement: across all nine benchmark variants the ceiling
-never binds at any threshold that respects a recall floor, so it changes no decision at all, while on the
-clustering stage it is consistently destructive (entity F1 of a strong word co-occurrence baseline falls by
-up to 0.34). The same evidence as \emph{soft features} does help, improving average precision in 9 of 9
-variants (mean +0.019). We further show that the better \emph{base matcher} on seen products is the
-\emph{worse} one on unseen products, inverting the ranking a single split would report. Finally, we show that raw
-string-similarity scores are badly uncalibrated (ECE 0.39) relative to trained matchers after
-temperature scaling (ECE 0.07), which is what makes selective acceptance with a review band tractable.
-At the classifier's own decision boundary our word co-occurrence baseline tracks the benchmark's
-published F1 across all nine cells with mean bias $-0.001$ (max deviation 4.5 points); our reported
-operating point sits ~2 points lower \emph{by construction}, because we trade F1 for precision. We claim
-no state of the art.
+Entity-resolution systems are almost always reported at the threshold that maximises \emph{pairwise}
+matching F1, yet the deliverable of a pipeline is a set of \emph{resolved entities}. We measure that
+mismatch on WDC Products and then ask what actually improves the resolved catalogue. A fine-tuned
+cross-encoder reproduces the benchmark's published baseline (F1 0.7102 versus 0.7218) and raises
+entity-level F1 from 0.188 to 0.582 --- more than every clustering mechanism we implemented combined
+(+0.19) --- so matching quality dominates post-hoc repair. We then test attribute- and
+specifier-constrained scoring across all nine benchmark variants and report a failure with a mechanism:
+the veto's precision collapses from 0.749 on a weak feature-based matcher to \textbf{0.335} on the
+cross-encoder, where 183 of 275 effectively blocked pairs were \emph{genuine} matches. Its apparent
+$+4.7$ F1 gain is threshold slide, not improvement: at a shared threshold F1 falls by 25.9 points and
+average precision by 7.1, because capping costs recall and any recall-respecting threshold re-admits
+exactly what was blocked. The same evidence used as \emph{soft features} helps instead (AP $+0.019$ in
+9/9 variants). We further show that the better matcher on seen products is the worse one on unseen
+products, and that raw string similarity is badly uncalibrated (ECE 0.39 versus 0.027), which is what
+makes selective acceptance usable. Our protocol reproduces the benchmark's published baseline with mean
+bias $-0.001$ across nine cells; we claim no state of the art.
 \end{abstract}
 
 \begin{IEEEkeywords}
