@@ -360,6 +360,11 @@ entity F1 0.1881; best gated cleanup entity F1 0.3829.
 
 ### Grid confirmation: the single-variant result generalises (8 epochs, all nine variants)
 
+Base-matcher reference points for the grid (these supersede the 3-epoch single-variant numbers in
+Section 10): at 80\%/0\% the cross-encoder reaches F1 **0.7102** at its F1-optimal threshold against the
+published **0.7218** for the same architecture (parity), and mean entity-level F1 is **0.629** for the
+cross-encoder against **0.240** for the feature-based matcher --- the +0.389 reported below.
+
 | measure | across nine variants |
 |---|---|
 | AP | constrained system lower in **9/9**, mean **-0.054** |
