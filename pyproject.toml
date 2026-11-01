@@ -18,6 +18,10 @@ dependencies = [
 
 [project.optional-dependencies]
 ml = ["sentence-transformers>=3.0", "faiss-cpu>=1.8", "torch>=2.2"]
+# Fine-tuning a cross-encoder (scripts/run_wdc.py --with-crossencoder). sentencepiece
+# is required on transformers v5 even for byte-vocabulary models when a checkpoint has
+# no fast tokenizer, and its absence fails only after data download on a rented GPU.
+finetune = ["transformers>=4.40", "sentencepiece>=0.1.99", "torch>=2.2"]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [build-system]

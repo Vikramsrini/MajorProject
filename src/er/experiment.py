@@ -81,6 +81,11 @@ def build_matcher(spec: SystemSpec, ds: Dataset, lexicon: AttributeLexicon, embe
         from .models.baselines import WordCooccurrenceMatcher
 
         m = WordCooccurrenceMatcher(ds)
+    elif spec.kind == "crossencoder":
+        from .models.crossencoder import CrossEncoderMatcher
+
+        kwargs = {k: v for k, v in spec.base.items() if k != "model"}
+        m = CrossEncoderMatcher(ds, model_name=spec.base.get("model", "roberta-base"), **kwargs)
     elif spec.kind == "classifier":
         from .models.baselines import ClassifierMatcher
 

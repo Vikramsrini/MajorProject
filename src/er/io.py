@@ -145,6 +145,12 @@ def load_wdc_products_pairwise(
             records[rid] = {
                 "record_id": rid,
                 "text": _serialize(row, side, include_description),
+                # Keep the original fields as well as the flattened text: a
+                # Ditto-style cross-encoder must serialise per field ([COL] name
+                # [VAL] value) to be comparable with the published numbers, and
+                # error analysis reads far better with the real title present.
+                "title": _clean_str(row.get(f"title_{side}")) or "",
+                "description": _clean_str(row.get(f"description_{side}")) or "",
                 "source": f"{prefix}_{side}",
                 "gold_entity": str(row[f"cluster_id_{side}"]),
                 "attrs": _attrs(row, side),

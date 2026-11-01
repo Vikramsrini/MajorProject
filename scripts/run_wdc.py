@@ -64,7 +64,8 @@ def find_files(data_dir: Path, corner: int, unseen: int) -> dict[str, Path]:
     return out
 
 
-def specs(with_embeddings: bool) -> list[SystemSpec]:
+def specs(with_embeddings: bool, with_crossencoder: bool = False, model: str = "roberta-base",
+          epochs: int = 3, max_steps: int | None = None) -> list[SystemSpec]:
     s = [
         SystemSpec("s1_similarity_tokenset", "similarity", {"metric": "token_set"}, group="baseline"),
         SystemSpec("s1b_similarity_jaro", "similarity", {"metric": "jaro_winkler"}, group="baseline"),
@@ -114,6 +115,29 @@ def specs(with_embeddings: bool) -> list[SystemSpec]:
                 group="ours",
             ),
         ]
+    if with_crossencoder:
+        ce_base = {
+            "model": model,
+            "epochs": epochs,
+            "seed": 0,
+        }
+        if max_steps:
+            ce_base["max_steps"] = max_steps
+        s += [
+            SystemSpec("s8_crossencoder", "crossencoder", dict(ce_base), group="baseline"),
+            SystemSpec(
+                "s9_crossencoder_constraint",
+                "crossencoder",
+                dict(ce_base),
+                constraints={
+                    "mode": "asymmetric_subset",
+                    "ceiling": 0.30,
+                    "use_specifiers": True,
+                    "ref": "s8_crossencoder",
+                },
+                group="ours",
+            ),
+        ]
     return s
 
 
@@ -125,7 +149,17 @@ def main() -> None:
     ap.add_argument("--dev-size", default="medium", help="train/valid development-set size")
     ap.add_argument("--out", default="results")
     ap.add_argument("--with-embeddings", action="store_true")
+    ap.add_argument("--with-crossencoder", action="store_true",
+                    help="fine-tune a cross-encoder (GPU recommended; use --max-steps to smoke-test)")
+    ap.add_argument("--model", default="roberta-base", help="encoder for the cross-encoder")
+    ap.add_argument("--epochs", type=int, default=3)
+    ap.add_argument("--max-steps", type=int, default=None,
+                    help="cap optimiser steps (smoke test); leaves limited training otherwise")
     ap.add_argument("--no-description", action="store_true", help="serialize title only")
+    ap.add_argument("--tag-suffix", default="",
+                    help="suffix for output filenames, e.g. '_ce' so GPU runs do not overwrite CPU rows")
+    ap.add_argument("--only-systems", default=None,
+                    help="comma-separated system names to run (default: all); use with a tag suffix")
     args = ap.parse_args()
 
     data_dir = Path(args.data)
@@ -172,7 +206,11 @@ def main() -> None:
     # can see the constraint's effect without the threshold sliding to hide it.
     REFERENCE = "s3_classifier_featattr"
     EMB_REFERENCE = "s6_sbert_cosine"
-    for spec in specs(args.with_embeddings):
+    for spec in specs(args.with_embeddings, args.with_crossencoder, args.model, args.epochs, args.max_steps):
+        if args.only_systems:
+            wanted = {x.strip() for x in args.only_systems.split(",") if x.strip()}
+            if spec.name not in wanted:
+                continue
         ref = None
         if spec.constraints:
             # each constrained system is compared at the operating point of ITS
@@ -209,7 +247,7 @@ def main() -> None:
             rows.append({"system": spec.name, "slice": "all", "error": f"{type(exc).__name__}: {exc}"})
 
     res = pd.DataFrame(rows)
-    tag = f"wdc{args.corner}cc_{args.unseen}un_dev{args.dev_size}"
+    tag = f"wdc{args.corner}cc_{args.unseen}un_dev{args.dev_size}" + args.tag_suffix
     res_path = out_dir / f"{tag}_results.csv"
     res.to_csv(res_path, index=False)
     print(f"\nwrote {res_path} ({len(res)} rows)")

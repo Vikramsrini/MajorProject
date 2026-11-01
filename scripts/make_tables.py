@@ -113,15 +113,40 @@ SYSTEM_LABELS = {
     "s5_full_constraint": "GBDT + typed + specifiers",
     "s6_sbert_cosine": "Sentence-BERT cosine",
     "s7_sbert_full_constraint": "SBERT + constraint",
+    "s8_crossencoder": "Fine-tuned cross-encoder",
+    "s9_crossencoder_constraint": "Cross-encoder + constraint",
 }
 
 
 def table_matching(results: Path, tag: str, out: Path) -> None:
-    p = results / f"{tag}_results.csv"
-    if not p.exists():
-        print(f"  skip matching table: {p.name} missing")
+    """Matching table for one variant, merging tag-suffixed runs (e.g. GPU runs).
+
+    A GPU run must not overwrite the CPU result files, so it writes
+    ``<tag>_<suffix>_results.csv``. This merges those in, but only for systems not
+    already present in the base file: if a GPU run also re-ran the cheap baselines,
+    the base file wins, so a table can never contain the same system twice.
+    """
+    base = results / f"{tag}_results.csv"
+    if not base.exists():
+        print(f"  skip matching table: {base.name} missing")
         return
-    df = pd.read_csv(p)
+    frames = [pd.read_csv(base)]
+    known = set(frames[0].system)
+    for extra in sorted(results.glob(f"{tag}_*_results.csv")):
+        if extra == base:
+            continue
+        if "_smoke" in extra.name:
+            # a 20-step random-model run exists to prove the plumbing; merging it would
+            # put a meaningless matcher row (F1 ~0.20) into the paper's table
+            print(f"  skipping {extra.name} (smoke test, not a result)")
+            continue
+        d = pd.read_csv(extra)
+        d = d[~d.system.isin(known)]
+        if not d.empty:
+            print(f"  + merging {extra.name} ({d.system.nunique()} new systems)")
+            frames.append(d)
+            known |= set(d.system)
+    df = pd.concat(frames, ignore_index=True)
     a = df[df.slice == "all"].set_index("system")
     h = df[df.slice == "hard_negative_only"].set_index("system")
     order = [s for s in SYSTEM_LABELS if s in a.index]
