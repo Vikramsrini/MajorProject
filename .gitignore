@@ -1,0 +1,30 @@
+# data and results are reproducible from scripts; keep them out of the repo
+data/
+results/
+*.zip
+*.json.gz
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# embeddings cache lives outside the repo, but guard local accidents
+*.npy
+*.faiss
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# generated figures
+*.pdf
+figures/
