@@ -200,6 +200,7 @@ def main() -> None:
 
     rows: list[dict] = []
     scored_store: dict[str, object] = {}
+    fitted: dict[str, object] = {}
     chosen_thr: dict[str, float] = {}
     # The unconstrained systems are the operating-point reference: constrained
     # variants are additionally scored at the reference threshold so a reviewer
@@ -212,6 +213,7 @@ def main() -> None:
             if spec.name not in wanted:
                 continue
         ref = None
+        base_matcher = None
         if spec.constraints:
             # each constrained system is compared at the operating point of ITS
             # own unconstrained base matcher (wordcooc vs wordcooc, sbert vs sbert)
@@ -219,12 +221,19 @@ def main() -> None:
             if ref_name is None:
                 ref_name = EMB_REFERENCE if spec.kind == "embedding" else REFERENCE
             ref = chosen_thr.get(ref_name)
+            base_matcher = fitted.get(ref_name)
             if ref is None:
                 print(f"  note: reference {ref_name} not run yet; skipping ref-threshold slice", file=sys.stderr)
+            if base_matcher is not None:
+                print(f"  reusing fitted base from {ref_name} (no refit)")
         try:
-            r, scored = run_system(spec, ds, tr, va, te, embeddings=embeddings, ref_threshold=ref)
+            r, scored, fitted_matcher = run_system(
+                spec, ds, tr, va, te, embeddings=embeddings, ref_threshold=ref,
+                base_matcher=base_matcher,
+            )
             rows.extend(r)
             scored_store[spec.name] = scored
+            fitted[spec.name] = fitted_matcher
             alls = [x for x in r if x["slice"] == "all"]
             if alls:
                 d = alls[0]

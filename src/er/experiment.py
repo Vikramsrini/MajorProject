@@ -130,21 +130,39 @@ def run_system(
     review_delta: float = 0.10,
     ref_threshold: float | None = None,
     min_recall: float = 0.5,
-) -> tuple[list[dict], PairTable]:
-    """Fit, calibrate and evaluate one system; returns tidy rows + scored test pairs.
-
-    The scored test pair table is returned so case studies and reliability plots
-    can be produced from the *same* run, never a re-run that might differ.
+    base_matcher: object | None = None,
+) -> tuple[list[dict], PairTable, object]:
+    """Fit, calibrate and evaluate one system; returns tidy rows + scored pairs + matcher.
 
     Args:
         ref_threshold: an external operating point (usually the unconstrained
             baseline's chosen threshold). When set, an ``all_at_ref_threshold``
             slice is emitted so the constraint's effect is separable from the
             threshold sliding to compensate for it.
+        base_matcher: an **already fitted** matcher to constrain, instead of building
+            and fitting a fresh base. Two reasons this matters for a cross-encoder:
+            retraining costs a full fine-tuning run per constrained variant, and a
+            second random initialisation would mix seed noise into the very
+            comparison the constraint is supposed to isolate. The returned matcher is
+            the fitted one, so callers can pass it on.
     """
     t0 = time.time()
-    matcher = build_matcher(spec, ds, lexicon, embeddings)
-    matcher.fit(train)
+    if base_matcher is not None and spec.constraints:
+        # wrap the shared, already-fitted base; do NOT refit it
+        c = spec.constraints
+        matcher = AttributeConstrainedMatcher(
+            base_matcher,
+            ds,
+            mode=c.get("mode", "asymmetric_subset"),
+            ceiling=float(c.get("ceiling", 0.30)),
+            hard=c.get("hard", HARD_ATTRIBUTES),
+            soft_extra=bool(c.get("soft_extra", False)),
+            lexicon=lexicon,
+            use_specifiers=bool(c.get("use_specifiers", True)),
+        )
+    else:
+        matcher = build_matcher(spec, ds, lexicon, embeddings)
+        matcher.fit(train)
 
     # --- operating point + calibration, chosen on VALID only ----------------
     # A hard constraint's benefit is invisible at an F1-optimal threshold,
@@ -381,11 +399,18 @@ def run_system(
     # design rather than a property of the system.
     nodes = sorted(set(df["record_id_l"].astype(str)) | set(df["record_id_r"].astype(str)))
     accepted = df[df["score"].to_numpy() >= chosen][["record_id_l", "record_id_r"]]
+    have_gold = "gold_entity" in ds.df.columns and ds.df["gold_entity"].notna().any()
     gold_ids = set(nodes)
-    gmap = ds.df[
-        ds.df["record_id"].astype(str).isin(gold_ids) & ds.df["gold_entity"].notna()
-    ]
-    gold_groups = [sorted(g["record_id"].astype(str).tolist()) for _, g in gmap.groupby("gold_entity")]
+    gmap = (
+        ds.df[ds.df["record_id"].astype(str).isin(gold_ids) & ds.df["gold_entity"].notna()]
+        if have_gold
+        else ds.df.iloc[0:0]
+    )
+    gold_groups = (
+        [sorted(g["record_id"].astype(str).tolist()) for _, g in gmap.groupby("gold_entity")]
+        if have_gold
+        else []
+    )
     if gold_groups:
         from .metrics import entity_pairwise_f1
 
@@ -396,7 +421,7 @@ def run_system(
         row.update(cluster_stats(clusters))
         rows.append(row)
 
-    return rows, scored
+    return rows, scored, matcher
 
 
 def reliability_rows(pt: PairTable, n_bins: int = 10) -> pd.DataFrame:
