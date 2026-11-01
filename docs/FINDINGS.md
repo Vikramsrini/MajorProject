@@ -307,3 +307,53 @@ floor, so the only feasible cut is the one that admits everything. Two consequen
 The distinction matters for reading Table 4: Jaro-Winkler is a genuinely weak scorer (AP 0.145-0.203) at a
 usable threshold, while s7 is a usable scorer at an unusable operating point. Reporting both numbers in the
 same column without that note would invite exactly the wrong comparison.
+
+## 10. Strong base matcher (roberta-base cross-encoder): the constraint is refuted, and base quality dominates
+
+First GPU run, WDC Products 80% corner cases / 0% unseen / medium dev set. `roberta-base`,
+Ditto-style field serialisation, 3 epochs, 495 optimiser steps, ~218 s on a T4. The constrained
+variant reuses the fitted weights (no refit), so the two rows differ only by the constraint.
+
+| | s8 cross-encoder | s9 + constraint |
+|---|---|---|
+| AP (threshold-free) | **0.7221** | 0.6516 |
+| P / R at its own operating point | 0.7944 / 0.5100 | 0.6467 / 0.6920 |
+| F1 at that point | 0.6212 | **0.6686** (looks better; see below) |
+| F1 at *s8's* threshold | 0.6212 | **0.3620** |
+| hard-negative false-merge rate | **0.0220** | 0.0627 |
+| entity-level F1 | **0.5817** | 0.5414 |
+| ECE | **0.0271** | 0.0174 |
+| effective vetoes / veto precision | -- | 275 / **0.3345** |
+
+Reference points on the same split: word co-occurrence AP 0.4766; GBDT+attrs AP 0.3539,
+entity F1 0.1881; best gated cleanup entity F1 0.3829.
+
+### What this establishes
+
+1. **The base matcher now beats the published simple baseline** (AP 0.7221 vs 0.4766) and is the
+   best-calibrated system in the project (ECE 0.0271). The "your matcher is 15 points below a
+   3-line baseline" objection is dead.
+2. **The constraint's apparent +4.7 F1 gain is threshold slide, not improvement.** Capping pushes
+   pairs to the ceiling, the recall floor forces the threshold down to 0.4626 (from 0.7799), and
+   the extra recall is bought with precision. Every threshold-free measure disagrees: AP -7.1 pts,
+   F1 at the shared threshold -25.9 pts, entity F1 -4.0 pts. **Do not report s9 as better.**
+3. **Veto precision collapses with base quality: 0.749 -> 0.3345.** On the GBDT base the veto
+   mostly blocked pairs that were wrong anyway; on a strong base **183 of 275 blocked pairs were
+   genuine matches** (66.5%). The constraint is a crutch for weak matchers and actively harmful to
+   strong ones. This inverts the original H2 and is a far more defensible claim than "it helps".
+4. **Base-matcher quality dominates post-hoc mechanism.** Entity F1 rose from 0.1881 (GBDT) to
+   0.5817 (cross-encoder) = **+0.39**, whereas every clustering improvement combined bought +0.19
+   (0.1881 -> 0.3829/0.4000). The thesis of the paper should be re-ordered accordingly: match
+   better first; cleanup is second-order.
+
+### Two caveats to state in the paper
+
+- **The F1 at a naive operating point is not comparable to published F1.** The precision-forward
+  rule stops as soon as recall reaches 0.5, which for a high-precision model means a low-F1 point.
+  Comparisons with published RoBERTa/Ditto (72.18/73.93) must use F1 at the F1-optimal threshold
+  and be labelled as such, or AP. Reporting 0.6212 next to 72.18 would be misleading.
+- **Early stopping monitors a slightly leaky split.** The es slice is a random split of *train
+  pairs*, and WDC products appear in many train pairs, so the same entity appears on both sides.
+  `es_f1 = 0.8472` is therefore optimistic and early stopping is selecting on an inflated signal.
+  Test numbers are unaffected (test offers are disjoint). Proper fix: group-split the es slice by
+  `cluster_id`. With 3 epochs the effect is small; it matters if epochs are raised.
