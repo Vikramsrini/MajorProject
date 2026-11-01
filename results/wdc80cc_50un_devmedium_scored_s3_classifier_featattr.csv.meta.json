@@ -1,0 +1,13 @@
+{
+  "dataset": "wdc_products_80_50_test",
+  "file": "wdcproducts80cc20rnd050un_gs.json.gz",
+  "fingerprint": "01ba46344121ef0e",
+  "corner_cases": 80,
+  "unseen": 50,
+  "split": "test",
+  "dev_size": "n/a",
+  "n_pairs": 4500,
+  "positives": 500,
+  "negatives": 4000,
+  "hard_negatives": 3000
+}
