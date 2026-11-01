@@ -5,6 +5,11 @@ All numbers here were produced by `scripts/run_wdc.py` / `scripts/run_blocking.p
 medium development set (train 6,000 / valid 3,500 / test 4,500 pairs; 500 positives; 3,000
 benchmark-flagged hard negatives). Date: 1 Nov 2026.
 
+
+> **Read Section 9 first.** Sections 1-5 were written from the single 80%/0%-unseen cell. Re-testing every
+> claim across all nine benchmark variants (Section 9) confirmed some and **retracted others**. Where the two
+> disagree, Section 9 wins.
+
 Read this before reusing any claim from the zeroth-review deck: **two of its three hypotheses did not
 survive measurement**, and the deck's anticipated benefits are not results.
 
@@ -232,3 +237,71 @@ fine-tuned transformers reach 0.67-0.73 on the same split.
    precision/recall trade without arguing about thresholds.
 5. ~~Review-band reporting~~ **done** (Section 5): band tied to the operating point, yield compared against
    the base rate. Next refinement: sweep the band width rather than fixing it at 0.10.
+
+## 9. Grid-wide re-test: which claims survived (supersedes 1-5)
+
+All nine variants (corner cases 20/50/80 x unseen 0/50/100, medium development set) were run with the same
+protocol. Each claim was re-tested as "in how many cells does the sign hold?" rather than from the one
+convenient cell. `verdict()` logic: mean delta and win count over the grid.
+
+### Confirmed (9/9 cells)
+
+| claim | evidence across the grid |
+|---|---|
+| Attribute evidence helps **as features** | AP s2 -> s3 improves in **9/9**, mean **+0.019** (range +0.004 to +0.032); F1 improves 7/9, mean +0.015 |
+| Attribute features reduce hard-negative false merges | lower FMR in **9/9**, mean **-1.9 points** |
+| Raw similarity is badly uncalibrated | ECE(s1) - ECE(s3) = **+0.30 in 9/9** (mean 0.382 vs 0.082; SBERT cosine 0.403) |
+| Calibrated matchers produce informative review bands | band yield above the 0.111 base rate in **9/9**: word co-occurrence mean +0.209 (2.9x base), GBDT +0.115 (2.0x base) |
+| The veto ceiling never binds | `veto_binds_valid = 0` and `ceiling_used = 0.45` in **every cell**, for every constrained system |
+| Cleanup improves entity F1 at the pairwise-optimal threshold | improves in **18/18** (system x variant) cells; largest cluster 14-68 -> 4-6 every time |
+| The constraint destroys entity quality on a strong base | entity F1 s1c -> s1d falls in all cells, e.g. 0.393 -> 0.054 (20%/0%), 0.405 -> 0.087 (50%/0%), 0.326 -> 0.135 (80%/0%) |
+
+### Retracted: claims that were single-cell artefacts
+
+| claim as first written | grid verdict | correction |
+|---|---|---|
+| "Specifier rules improve AP (+1.3 points)" (s3 -> s5) | **3/9, mean -0.002** | No effect. The +1.3 was the one cell where it happened to help. The constraint changes *decisions* only when the threshold is forced elsewhere; it does not improve ranking. |
+| "On the strong base the constraint is clearly harmful (AP 0.477 -> 0.445)" | **6/9 positive, mean +0.006** | Its AP effect is noise. It is harmful at the *entity* level (see above), not at the scoring level. |
+| "An uncalibrated similarity band is worse than random (yield 0.095 < 0.111)" | **above base in 6/9, mean +0.036** | Not worse than random in general. The robust statement is about **workload**: the similarity band swallows 32.7% of all pairs at ~1.15x base rate, while calibrated matchers give 3-10% workload at 2.0-2.9x base rate. The band is useless because it is huge, not because it is inverted. |
+| Word-Cooc reproduction "1.14 points apart" | mean **+0.024** at our operating point | See the stronger validation below. |
+
+### Stronger protocol validation than originally claimed
+
+At the SVM's own decision boundary (rather than our precision-forward operating point), our word-co-occurrence
+baseline tracks the published numbers across **all nine cells** with mean bias **-0.001** and maximum absolute
+deviation **4.5 points** - unbiased. Our reported F1 sits ~2.2 points lower than published **by construction**,
+because our operating-point rule deliberately trades F1 for precision. That is a protocol statement, not a
+deficit: the model is reproduced, the decision rule is ours and is disclosed.
+
+### The new robustness finding worth its own subsection
+
+Base-matcher choice and robustness trade off against each other, and the direction is not obvious:
+
+| at 0% unseen | at 100% unseen |
+|---|---|
+| word co-occurrence **0.515 / 0.533 / 0.548** | word co-occurrence **0.273 / 0.281 / 0.320** |
+| GBDT + attribute features 0.369 / 0.447 / 0.455 | GBDT + attribute features **0.414 / 0.438 / 0.472** |
+
+(for 80% / 50% / 20% corner cases). Word co-occurrence wins on seen products by 9-15 points and **loses on
+unseen products by 14-16 points**, because a bag-of-words co-occurrence model leans on product-specific
+vocabulary that unseen offers do not reuse, while structural similarity and attribute features transfer.
+Ranking a matcher on one split therefore inverts on another - which is the same lesson as the operating-point
+mismatch, one level up. This is now a headline-eligible result and it was invisible in the single-cell view.
+
+### The recall floor can be infeasible, and that must be visible in the table
+
+For `s7_sbert_full_constraint` the operating-point rule returned **recall = 1.000 and precision = 0.1112
+in all three embedding variants** --- precision equal to the test base rate (500/4,500 = 0.1111). That is not
+a matcher; it is the rule having no feasible cut. Cause: the constraint caps 74% of test pairs, and because a
+large share of the capped pairs are positives, no threshold above the capped block reaches the 0.5 recall
+floor, so the only feasible cut is the one that admits everything. Two consequences recorded here:
+
+* `run_system` now emits `degenerate_operating_point`, computed from **validation** recall (never test), so a
+  row of this kind cannot be misread as a score.
+* A recall floor is a hard constraint on the constraint. Any future veto mechanism must either cap a
+  smaller, higher-precision set (e.g. stated-vs-stated conflicts only) or route capped pairs to the review
+  band instead of rejecting them --- which is where H3 and H2 should have been combined from the start.
+
+The distinction matters for reading Table 4: Jaro-Winkler is a genuinely weak scorer (AP 0.145-0.203) at a
+usable threshold, while s7 is a usable scorer at an unusable operating point. Reporting both numbers in the
+same column without that note would invite exactly the wrong comparison.

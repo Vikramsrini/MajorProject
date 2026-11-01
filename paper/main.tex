@@ -39,14 +39,18 @@ pairwise-F1-optimal threshold, transitive-closure clustering of a matcher whose 
 matcher at its entity-optimal threshold reaches 0.262, and a label-free transitive-consistency cleanup
 with a confidence gate reaches 0.383 \emph{at the original threshold}, while the largest cluster falls
 from 50 to 4. We also evaluate an attribute- and specifier-constrained scorer intended to prevent merges of
-near-identical variants. It does not survive measurement as a hard constraint: at a fixed operating
-point it changes precision by $+0.5$ points, because every recall-respecting threshold re-admits the
-pairs it capped, and it degrades a strong word co-occurrence baseline from AP 0.477 to 0.445. The same
-evidence as \emph{soft features} does help (AP 0.323\,$\rightarrow$\,0.354). Finally, we show that raw
+near-identical variants. It does not survive measurement: across all nine benchmark variants the ceiling
+never binds at any threshold that respects a recall floor, so it changes no decision at all, while on the
+clustering stage it is consistently destructive (entity F1 of a strong word co-occurrence baseline falls by
+up to 0.34). The same evidence as \emph{soft features} does help, improving average precision in 9 of 9
+variants (mean +0.019). We further show that the better \emph{base matcher} on seen products is the
+\emph{worse} one on unseen products, inverting the ranking a single split would report. Finally, we show that raw
 string-similarity scores are badly uncalibrated (ECE 0.39) relative to trained matchers after
 temperature scaling (ECE 0.07), which is what makes selective acceptance with a review band tractable.
-Our word co-occurrence baseline reproduces the benchmark's published F1 of 52.66 as 51.52, so the
-protocol is comparable to published results; we claim no state of the art.
+At the classifier's own decision boundary our word co-occurrence baseline tracks the benchmark's
+published F1 across all nine cells with mean bias $-0.001$ (max deviation 4.5 points); our reported
+operating point sits ~2 points lower \emph{by construction}, because we trade F1 for precision. We claim
+no state of the art.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -73,14 +77,20 @@ what did not work.
 \item We quantify the pairwise-to-entity operating-point mismatch on WDC Products: at the
   pairwise-F1-optimal threshold, entity-level F1 is 0.108 versus 0.262 at the entity-optimal threshold, and
   0.383 after a gated transitive-consistency cleanup at the \emph{unchanged} threshold (Table~\ref{tab:entity}).
+  The cleanup gain holds in 18 of 18 system-variant cells and shrinks the largest cluster from 14--68 offers
+  to 4--6 every time.
 \item We implement attribute- and specifier-constrained scoring and report it as a \emph{negative}
   result, with a diagnostic we believe is rarely published --- veto precision, i.e.\ the fraction of
-  blocked pairs that were genuine matches (0.62--0.75). We show why the constraint is structurally inert:
-  capping costs recall, so any threshold that satisfies a recall floor re-admits the capped pairs.
+  blocked pairs that were genuine matches (0.62--0.75). We show why it is structurally inert: capping costs
+  recall, so any threshold satisfying a recall floor re-admits the capped pairs --- logged in all nine variants.
 \item We show that the same evidence is worth more as soft features than as a hard veto, and that raw
   similarity is nowhere near calibrated (ECE 0.39 versus 0.07 after training and temperature scaling).
+\item We report a robustness inversion that single-split evaluation hides: word co-occurrence beats a
+  structural feature model by 9--15 F1 points on seen products and loses to it by 14--16 points when every
+  test product is unseen, so the preferred matcher depends on which split you look at.
 \item We bound every downstream result with a catalog-wide blocking study (Table~\ref{tab:blocking}), and
-  release a reproducible pipeline whose tables and figures are generated from the experiment CSVs.
+  release a reproducible pipeline whose tables and figures are generated from the experiment CSVs, so no
+  number in this paper was hand-copied from a log.
 \end{enumerate}
 
 \section{Related Work}
@@ -110,6 +120,7 @@ decision-model matchers are well-calibrated only for the strongest models \cite{
 We adopt that line and connect it to review workload.
 
 \section{Method}
+\label{sec:method}
 \subsection{Pipeline}
 Records are normalised conservatively (de-accenting, separator and punctuation folding) deliberately
 \emph{without} aggressive stop-word removal, because the tokens that distinguish variants are exactly the
@@ -173,10 +184,14 @@ checks against the benchmark paper's own statistics table.
 
 \subsection{Protocol validation}
 Our word co-occurrence baseline reaches F1 51.52 against the benchmark paper's published 52.66 on the same
-split --- a 1.14-point difference. This is the load-bearing sanity check of the paper: it makes our other
-rows comparable to published numbers. It equally establishes that our own feature classifier (36.90) sits
-fifteen points \emph{below} that simple baseline, so nothing here is claimed as state of the art, and
-published fine-tuned transformers on this split reach 0.67--0.73 \cite{peeters2024wdc}.
+split. Across all nine cells, evaluated at the SVM's own decision boundary, our reproduction tracks the
+published numbers with mean bias $-0.001$ and maximum absolute deviation 4.5 points --- unbiased, which is
+the load-bearing sanity check of the paper: it is what licenses comparison with published rows. Our reported
+F1 sits ~2.2 points \emph{below} published by construction, because the precision-forward operating rule of
+Section~\ref{sec:method} trades F1 for precision deliberately, not accidentally.
+The same check establishes that our feature classifier (36.90 on this cell) sits fifteen points below that
+simple baseline, so nothing here is claimed as state of the art; published fine-tuned transformers reach
+0.67--0.73 on this split \cite{peeters2024wdc}.
 
 \input{tables/table_matching}
 
@@ -187,8 +202,12 @@ and must not be read as one.
 \subsection{The constraint does not survive as a hard veto}
 \label{sec:negative}
 At the unconstrained baseline's own operating point, the constraint moves precision by $+0.5$ points and
-false positives by $-17$ of 437. On the stronger word co-occurrence base it \emph{hurts}: AP falls from
-0.477 to 0.445 and entity-level F1 from 0.326 to 0.135. The mechanism is structural. Capping costs recall,
+false positives by $-17$ of 437. Two claims we first made from a single cell did not survive the grid and are
+retracted here: the constraint neither reliably improves ranking on the feature model (AP gain in 3 of 9
+variants, mean $-0.002$) nor reliably harms the strong word co-occurrence baseline at the scoring level (AP
+change $+0.006$, positive in 6 of 9). It is not neutral-but-harmless either: at the \emph{entity} level it
+falls in every variant tested, 0.393\,$\rightarrow$\,0.054 at 20\%/0\% unseen, 0.405\,$\rightarrow$\,0.087 at
+50\%/0\% and 0.326\,$\rightarrow$\,0.135 at 80\%/0\%. The mechanism is structural. Capping costs recall,
 because many genuine matches also appear to conflict (one title is simply shorter). Every threshold that
 satisfies the recall floor therefore re-admits the pairs the veto had blocked, and the constraint cancels
 itself --- all constrained systems logged that no ceiling in $\{0.05,\dots,0.45\}$ binds at its operating
@@ -201,8 +220,11 @@ The diagnostic that makes this legible is \emph{veto precision}: among effective
 were correctly blocked, i.e.\ between 24 and 184 genuine matches were destroyed per configuration. The most active rule
 is also the weakest: one-sided variant absence fires 1{,}398 times, mostly detecting truncation rather than
 difference of product. Symmetric-only firing (stated versus stated) is 4$\times$ rarer and correspondingly
-less destructive. Attribute evidence does pay for itself as \emph{soft features}: AP 0.323 to 0.354, and
-hard-negative false merges from 16.9\% to 14.6\%.
+less destructive. Attribute evidence does pay for itself as \emph{soft features}, and this is the one
+scoring-stage claim that survives the grid: average precision improves in \emph{9 of 9} variants (mean
++0.019), and the false-merge rate on the benchmark's own hard negatives falls in \emph{9 of 9} (mean
+$-1.9$ points). Same information, used as a feature the model can weigh rather than as a rule it cannot
+overrule --- the distinction the original hypothesis did not anticipate.
 
 \subsection{Entity resolution is where the effect is}
 \label{sec:entity}
@@ -225,8 +247,15 @@ not a novelty claim. Its value here is diagnostic: it makes the operating-point 
 
 Table~\ref{tab:cross} reports every variant measured so far. The two columns are the point of the figure:
 for the same matcher, pair F1 and entity F1 are not close, and the distance between them changes with the
-corner-case and unseen-product levels. The unseen-product axis is where the benchmark paper itself reports
-the largest degradations \cite{peeters2024wdc}, which is why we report it rather than a single split.
+corner-case and unseen-product levels, and it surfaces an inversion that single-split evaluation cannot see.
+Word co-occurrence is clearly the better matcher on seen products (0.515/0.533/0.548 at 80\%/50\%/20\%
+corner cases) yet degrades steeply as unseen products enter the test split, reaching 0.273/0.281/0.320 at
+100\% unseen. The structural feature model starts 9--15 points behind and ends 14--16 points \emph{ahead}
+(0.369\,$\rightarrow$\,0.414, 0.447\,$\rightarrow$\,0.438, 0.455\,$\rightarrow$\,0.472). A
+bag-of-words co-occurrence model leans on product-specific vocabulary that unseen offers do not reuse, while
+normalised similarity and attribute agreement transfer. Choosing a matcher on one split therefore selects
+the wrong one for the regime the benchmark paper itself identifies as hardest \cite{peeters2024wdc}. The
+entity-level cleanup result is unaffected: it improves in all 18 system-variant cells.
 
 \subsection{Blocking bounds everything above it}
 \label{sec:blocking}
@@ -256,9 +285,12 @@ acceptance, and the band is worth measuring rather than assuming. Defining it as
 below the operating point, the test-set base rate is 0.111, so a band whose precision sits at or below that
 value is not worth any reviewer's time. For word co-occurrence the band covers 3.0\% of pairs at yield 0.287
 (2.6$\times$ base) and recovers 39 missed positives; for the GBDT matchers, 7.6--9.5\% of pairs at yield
-0.199--0.221 (1.8--2.0$\times$). For raw token-set similarity the band swallows 59.2\% of all pairs at yield
-0.095 --- \emph{below} random selection. Calibration is thus the property that makes abstention usable at
-all, which is the substantive content of our confidence-aware claim.
+0.199--0.221 (1.8--2.0$\times$). Across the grid the trained matchers beat the base rate in 9 of 9 variants;
+raw similarity does not produce an \emph{inverted} band as we first supposed (it exceeds base in 6 of 9),
+but its band averages 32.7\% of all pairs at only 1.15$\times$ base --- a workload no reviewer would accept
+for a gain indistinguishable from picking pairs at random. Calibration is therefore the property that makes
+abstention worth invoking at all, in workload terms rather than sign terms, and that is the substantive
+content of our confidence-aware claim.
 
 \section{Limitations}
 Single benchmark family; English-language schema.org offers from 2020. The base matcher is deliberately

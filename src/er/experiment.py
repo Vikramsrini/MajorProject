@@ -214,10 +214,19 @@ def run_system(
     if review_band is None:
         review_band = (max(0.0, float(chosen) - review_delta), float(chosen))
 
+    # Detect an accept-everything operating point from VALID (never test), so the
+    # diagnostic cannot leak and so no table row can be misread as a matcher score.
+    _vr = valid_op.get("recall")
+    degenerate = bool(_vr is not None and _vr == _vr and _vr >= 0.999)
+
     rows: list[dict] = []
     base_common = {
         "system": spec.name,
         "kind": spec.kind,
+        # An accept-everything operating point is not a decision. Flag it so no
+        # table can be read as "this matcher scored 0.111 precision" when what
+        # actually happened is that the recall floor left no feasible threshold.
+        "degenerate_operating_point": degenerate,
         "group": spec.group,
         "constraints": (spec.constraints or {}).get("mode", "none"),
         "dataset": test.meta.get("dataset"),

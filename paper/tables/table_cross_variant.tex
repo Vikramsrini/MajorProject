@@ -1,34 +1,39 @@
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\caption{All variants measured so far. The pair-F1 column hides the entity column: the gap between them is the operating-point cost that this paper is about.}
+\caption{Every system on all nine WDC Products variants, columns labeled corner-case\%/unseen\%. Word co-occurrence (row 3) leads on seen products and falls below the structural feature model (row 6) at 100\% unseen. The entity block is the same systems an order of magnitude worse than their own pair-level numbers.}
 \label{tab:cross}
 \small
-\begin{tabular}{lrrrr}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrrrr}
 \toprule
-cc/unseen & System & pair F1 & entity F1 & AP \\
+System & 80/0 & 80/50 & 80/100 & 50/0 & 50/50 & 50/100 & 20/0 & 20/50 & 20/100 \\
 \midrule
-80\%/0\% & Token-set similarity & 0.337 & 0.123 & 0.271 \\
-80\%/0\% & Jaro-Winkler & 0.212 & 0.002 & 0.145 \\
-80\%/0\% & Word co-occurrence + SVM \cite{peeters2024wdc} & 0.515 & 0.326 & 0.477 \\
-80\%/0\% & Word co-occ. + constraint & 0.483 & 0.135 & 0.445 \\
-80\%/0\% & GBDT, no attr. features & 0.353 & 0.166 & 0.323 \\
-80\%/0\% & GBDT + attr. features & 0.369 & 0.188 & 0.354 \\
-80\%/0\% & GBDT + typed veto (asym.) & 0.369 & 0.188 & 0.347 \\
-80\%/0\% & GBDT + typed veto (sym.) & 0.369 & 0.188 & 0.348 \\
-80\%/0\% & GBDT + typed + specifiers & 0.369 & 0.188 & 0.366 \\
-80\%/0\% & Sentence-BERT cosine & 0.298 & 0.110 & 0.218 \\
-80\%/0\% & SBERT + constraint & 0.200 & 0.002 & 0.228 \\
-80\%/50\% & Token-set similarity & 0.394 & 0.183 & 0.354 \\
-80\%/50\% & Jaro-Winkler & 0.237 & 0.002 & 0.156 \\
-80\%/50\% & Word co-occurrence + SVM \cite{peeters2024wdc} & 0.452 & 0.282 & 0.356 \\
-80\%/50\% & Word co-occ. + constraint & 0.444 & 0.131 & 0.378 \\
-80\%/50\% & GBDT, no attr. features & 0.455 & 0.231 & 0.438 \\
-80\%/50\% & GBDT + attr. features & 0.456 & 0.250 & 0.446 \\
-80\%/50\% & GBDT + typed veto (asym.) & 0.456 & 0.250 & 0.420 \\
-80\%/50\% & GBDT + typed veto (sym.) & 0.456 & 0.250 & 0.438 \\
-80\%/50\% & GBDT + typed + specifiers & 0.456 & 0.250 & 0.435 \\
-80\%/50\% & Sentence-BERT cosine & 0.382 & 0.150 & 0.267 \\
-80\%/50\% & SBERT + constraint & 0.200 & 0.002 & 0.299 \\
+\multicolumn{10}{l}{\textit{pair-level F1}} \\
+Token-set similarity & 0.337 & 0.394 & 0.378 & 0.360 & 0.422 & 0.403 & 0.398 & 0.451 & 0.458 \\
+Jaro-Winkler & 0.212 & 0.237 & 0.223 & 0.232 & 0.234 & 0.246 & 0.254 & 0.251 & 0.256 \\
+Word co-occurrence + SVM \cite{peeters2024wdc} & \textbf{0.515} & 0.452 & 0.273 & \textbf{0.533} & 0.452 & 0.281 & \textbf{0.548} & 0.480 & 0.320 \\
+Word co-occ. + constraint & 0.483 & 0.444 & 0.324 & 0.507 & 0.445 & 0.350 & 0.502 & 0.466 & 0.385 \\
+GBDT, no attr. features & 0.353 & 0.455 & 0.389 & 0.425 & 0.462 & 0.403 & 0.435 & \textbf{0.489} & 0.455 \\
+GBDT + attr. features & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.447 & 0.462 & 0.438 & 0.455 & 0.483 & 0.472 \\
+GBDT + typed veto (asym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
+GBDT + typed veto (sym.) & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
+GBDT + typed + specifiers & 0.369 & \textbf{0.456} & \textbf{0.414} & 0.459 & \textbf{0.469} & \textbf{0.445} & 0.456 & 0.486 & \textbf{0.477} \\
+Sentence-BERT cosine & 0.298 & 0.382 & 0.384 & -- & -- & -- & -- & -- & -- \\
+SBERT + constraint & 0.200 & 0.200 & 0.200 & -- & -- & -- & -- & -- & -- \\
+\addlinespace
+\multicolumn{10}{l}{\textit{entity-level F1}} \\
+Token-set similarity & 0.123 & 0.183 & 0.206 & 0.131 & 0.208 & 0.247 & 0.168 & 0.248 & \textbf{0.238} \\
+Jaro-Winkler & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 & 0.002 \\
+Word co-occurrence + SVM \cite{peeters2024wdc} & \textbf{0.326} & \textbf{0.282} & 0.184 & \textbf{0.405} & 0.269 & 0.163 & \textbf{0.393} & \textbf{0.317} & 0.221 \\
+Word co-occ. + constraint & 0.135 & 0.131 & 0.113 & 0.087 & 0.058 & 0.044 & 0.054 & 0.052 & 0.063 \\
+GBDT, no attr. features & 0.166 & 0.231 & 0.235 & 0.209 & 0.226 & 0.247 & 0.149 & 0.222 & 0.113 \\
+GBDT + attr. features & 0.188 & 0.250 & \textbf{0.237} & 0.214 & \textbf{0.272} & \textbf{0.299} & 0.203 & 0.291 & 0.203 \\
+GBDT + typed veto (asym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+GBDT + typed veto (sym.) & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+GBDT + typed + specifiers & 0.188 & 0.250 & \textbf{0.237} & 0.200 & 0.244 & 0.267 & 0.162 & 0.216 & 0.132 \\
+Sentence-BERT cosine & 0.110 & 0.150 & 0.197 & -- & -- & -- & -- & -- & -- \\
+SBERT + constraint & 0.002 & 0.002 & 0.002 & -- & -- & -- & -- & -- & -- \\
 \bottomrule
 \end{tabular}
-\end{table}
+}
+\end{table*}
