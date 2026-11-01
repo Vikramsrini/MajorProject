@@ -76,8 +76,8 @@ print("colab:", IN_COLAB, "| kaggle:", IN_KAGGLE, "| python:", platform.python_v
 # --- point this at your project -------------------------------------------------
 # Preferred: push the repo to GitHub once and clone it here. Alternative: upload a zip
 # of the project directory and set ZIP_PATH.
-GITHUB_URL = ""            # e.g. "https://github.com/<you>/<repo>.git"
-ZIP_PATH   = ""            # e.g. "/content/major-project.zip"
+GITHUB_URL = "https://github.com/Vikramsrini/MajorProject.git"
+ZIP_PATH   = ""            # e.g. "/content/major-project.zip" (alternative to git clone)
 PROJECT_DIR = "/content/Major Project" if IN_COLAB else "/kaggle/working/Major Project"
 
 def find_project() -> pathlib.Path:

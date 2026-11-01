@@ -87,6 +87,8 @@ results/                generated tables (git-ignored)
 ## 4. Run it
 
 ```bash
+git clone https://github.com/Vikramsrini/MajorProject.git
+cd MajorProject
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e .[ml]                       # adds sentence-transformers, faiss, torch
 python scripts/download_wdc.py --dest data/raw
@@ -95,8 +97,17 @@ python scripts/run_wdc.py --data data/raw --corner 80 --unseen 100 --out results
 pytest -q
 ```
 
+**On GPU (Kaggle):** open `notebooks/finetune_wdc_colab.ipynb` — it clones this repo, runs a
+20-step smoke test, then fine-tunes the cross-encoder (see `docs/COMPUTE.md` for the time
+budget: ~30-50 min for all nine variants on one seed).
+
 Runs on an Apple M2 / 16 GB laptop: the gradient-boosting systems take a couple of minutes, the
 embedding systems add model download plus one encode pass (cached to `~/.cache/er-research`).
+
+**What is in the repo vs. regenerated:** `results/` holds the summary CSVs and `figures/` the
+paper plots, so a clone can rebuild every table and compile the paper. The 45 MB per-pair score
+dumps and the 124 MB benchmark download are excluded (`scripts/run_wdc.py` and
+`scripts/download_wdc.py` recreate them).
 
 ## 5. Deliberate research-integrity choices
 
