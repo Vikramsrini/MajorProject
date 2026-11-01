@@ -210,9 +210,12 @@ and must not be read as one.
 \label{sec:negative}
 At the unconstrained baseline's own operating point, the constraint moves precision by $+0.5$ points and
 false positives by $-17$ of 437. Two claims we first made from a single cell did not survive the grid and are
-retracted here: the constraint neither reliably improves ranking on the feature model (AP gain in 3 of 9
-variants, mean $-0.002$) nor reliably harms the strong word co-occurrence baseline at the scoring level (AP
-change $+0.006$, positive in 6 of 9). It is not neutral-but-harmless either: at the \emph{entity} level it
+retracted here. Averaged over three seeds with 90\% training resamples, the full constraint on the feature
+model has no detectable AP effect (AP higher in 4 of 9 variants, mean $-0.002$, within a seed standard
+deviation of about 0.008), and on word co-occurrence the constraint does not reduce AP (mean $+0.011$,
+higher in 6 of 9). The typed veto alone is the exception: on the feature model it lowers AP in \emph{9 of 9}
+variants (mean $-0.021$, about $2.5\times$ the seed spread; Wilcoxon $p=0.004$), so the rule costs ranking
+quality even where the full constraint does not. It is not neutral-but-harmless either: at the \emph{entity} level it
 falls in every variant tested, 0.393\,$\rightarrow$\,0.054 at 20\%/0\% unseen, 0.405\,$\rightarrow$\,0.087 at
 50\%/0\% and 0.326\,$\rightarrow$\,0.135 at 80\%/0\%. The mechanism is structural. Capping costs recall,
 because many genuine matches also appear to conflict (one title is simply shorter). Every threshold that
@@ -222,6 +225,8 @@ point. The SBERT variant is the instructive failure: it flagged 3{,}321 of 4{,}5
 operating point collapsed to ``accept everything'', and clustering produced one cluster containing all
 1{,}000 products (entity F1 0.002). A constraint that fires on three quarters of candidates is not a
 constraint.
+
+\IfFileExists{tables/table_seeds.tex}{\input{tables/table_seeds}}{}
 
 The diagnostic that makes this legible is \emph{veto precision}: among effectively blocked pairs, 62--75\%
 were correctly blocked, i.e.\ between 24 and 184 genuine matches were destroyed per configuration. The most active rule
