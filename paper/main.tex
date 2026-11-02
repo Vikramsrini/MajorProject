@@ -1,366 +1,448 @@
-% IEEE conference draft. Tables and figures are GENERATED from results/ by
-%   python scripts/make_tables.py && python scripts/make_figures.py
-% Never hand-edit paper/tables/*.tex or figures/*; edit the scripts instead, so a
-% number in this paper can never disagree with the experiment that produced it.
+% =====================================================================================================
+% IEEE conference paper draft (v2). The previous draft is kept in main_v1_old.tex.
 %
-% Compile with the IEEEtran class (bundled by Overleaf's "IEEE Conference Templates").
+% NO RESULT IS TYPED INTO THIS FILE. Every number is \R{key}, read from generated/numbers.tex; every table
+% and figure is read from generated/. Both are produced by notebooks/er_full_pipeline_colab.ipynb and
+% copied here with:   python scripts/import_results.py <er_results_RUN.zip>
+%
+% Until results are imported the PDF compiles with red placeholders: [CE.ap] marks a missing number and
+% [claim B pending] marks wording that depends on the paper-readiness check.
+%
+% \IfClaim{X}{supported wording}{unsupported wording} picks the sentence from the readiness flag:
+%   B = validation-selected entity operating point beats the pairwise one
+%   C = hard veto lowers AP of the strongest matcher
+%   D = veto precision falls as matcher quality rises
+%   E = conflict evidence helps as a soft feature
+%   F = conflict-aware review routing beats uncertainty routing
+%   P = cross-encoder reproduces the published RoBERTa results
+%   R = the DeBERTa-v3 cross-encoder agrees with RoBERTa on claims C and F (replication)
+% After importing, read every selected branch: the wording is chosen automatically, but how strongly a
+% result is phrased remains the authors' decision.
+%
+% Before submission: complete the Acknowledgment. IEEE requires any use of AI-generated content
+% (text, code, figures) to be disclosed there; describe honestly what was AI-assisted.
+%
+% Page budget: IEEE BigData regular papers allow 10 pages, many IEEE workshops 6-8. To reach 6 pages,
+% move table_robustness, table_cost and the reliability figure to an appendix or the repository.
+% =====================================================================================================
 \documentclass[conference]{IEEEtran}
 
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
 \usepackage{graphicx}
-\graphicspath{{../figures/}{figures/}}  % figures are generated; run scripts/make_figures.py
 \usepackage{booktabs}
-\usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{url}
+\usepackage{textcomp}
+
+% ---- result plumbing ---------------------------------------------------------------------------------
+\newcommand{\R}[1]{\ifcsname res:#1\endcsname\csname res:#1\endcsname\else{\color{red}\textbf{[#1]}}\fi}
+\newcommand{\IfClaim}[3]{\ifcsname res:flag.#1\endcsname
+  \ifnum\csname res:flag.#1\endcsname=1 #2\else #3\fi
+  \else{\color{red}[claim #1 pending]}~#2\fi}
+\newcommand{\GenTable}[2]{\IfFileExists{generated/#1.tex}{\input{generated/#1.tex}}{%
+  \begin{table}[t]\centering\fbox{\parbox{0.92\columnwidth}{\centering\color{red}\textbf{#2}\\
+  pending: \texttt{\detokenize{generated/#1.tex}}}}\end{table}}}
+\newcommand{\GenFig}[5]{% env, file, width, caption, label
+  \begin{#1}[t]\centering
+  \IfFileExists{generated/#2.pdf}{\includegraphics[width=#3]{generated/#2.pdf}}{%
+    \fbox{\parbox{0.9\columnwidth}{\centering\color{red} pending: \texttt{\detokenize{generated/#2.pdf}}}}}
+  \caption{#4}\label{#5}\end{#1}}
+\IfFileExists{generated/numbers.tex}{\input{generated/numbers.tex}}{}
 
 \begin{document}
 
-\title{Where the Gains Are: Measuring the Pairwise-to-Entity Operating-Point
-Mismatch in Product Entity Resolution}
+\title{\IfClaim{B}{Tune for Entities, Not Pairs: Operating Points, Attribute Constraints and Review
+Routing for Product Entity Resolution}{Attribute Constraints, Matcher Quality and Review Routing in
+Product Entity Resolution: An Empirical Study}}
 
-\author{\IEEEauthorblockN{[Student 1 Name], [Student 2 Name]}
-\IEEEauthorblockA{\textit{Dept.\ of Computer Science and Engineering}\\
+\author{\IEEEauthorblockN{[Author 1], [Author 2], [Author 3]}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering}\\
 \textit{SRM Institute of Science and Technology}\\
 [City], India\\
-[email, email]}
-}
+\{[email1], [email2]\}@srmist.edu.in}
+\and
+\IEEEauthorblockN{[Guide name]}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering}\\
+\textit{SRM Institute of Science and Technology}\\
+[City], India\\
+[email]}}
 
 \maketitle
 
+% ======================================================================================================
 \begin{abstract}
-Entity-resolution systems are almost always reported at the threshold that maximises \emph{pairwise}
-matching F1, yet the deliverable of a pipeline is a set of \emph{resolved entities}. We measure that
-mismatch on WDC Products and then ask what actually improves the resolved catalogue. A fine-tuned
-cross-encoder reproduces the benchmark's published baseline (F1 0.7102 versus 0.7218) and raises
-entity-level F1 from 0.240 to 0.629 --- a gain of $+0.39$, against $+0.23$ for the best clustering
-mechanism we built --- so matching quality dominates post-hoc repair, though not to its exclusion. We then
-test attribute- and specifier-constrained scoring across all nine benchmark variants and report a failure
-\emph{with a mechanism}: the veto's precision falls from 0.749 on a weak feature-based matcher to a mean of
-\textbf{0.281} on the cross-encoder, where \textbf{171 of 239} blocked pairs per variant were \emph{genuine}
-matches. Its apparent F1 gain of several points is threshold slide: average precision is lower in
-\textbf{9/9} variants (mean $-0.054$), and at a shared operating point F1 is lower in \textbf{9/9}
-(mean $-0.19$). The same evidence used as \emph{soft features} helps instead (AP $+0.019$ in 9/9). We
-further show that the model which wins on seen products is the one that fails on unseen products: the
-fine-tuned encoder loses 1.2 F1 points across the unseen axis where a bag-of-words baseline loses 24. Raw
-string similarity is badly uncalibrated (ECE 0.39 versus 0.027 for the cross-encoder), which is what makes
-selective acceptance usable. Our protocol reproduces the published baseline with mean bias $-0.001$ across
-nine cells; we claim no state of the art.
+Most evaluations of product matching stop at pairwise F1, measured at whichever threshold maximises it.
+Catalogue owners, however, work with the merged entities, and one wrong link can join two product
+families. This paper examines three choices made after a matcher has scored its candidate pairs: where
+to put the threshold, whether to overrule the matcher when two offers state conflicting attributes, and
+which pairs to hand to a human reviewer when only a few can be checked. We run eight matchers from four
+architecture families (string and feature-based baselines, a bi-encoder and two cross-encoders based on
+RoBERTa and DeBERTa-v3, all fine-tuned, and zero-shot LLMs from two model families) on all nine variants of WDC
+Products and on \R{nextra} Magellan benchmarks. Thresholds, calibrators and other settings are fitted
+on validation data only, and every claim is judged against success criteria that we fixed before running
+the experiments.
+\IfClaim{B}{Picking the threshold that maximises entity-level F1 on validation lifts the cross-encoder's
+entity F1 from \R{CE.entpw} to \R{CE.entbest}, with a gain in \R{CE.entbestwins} variants.}{Picking the
+threshold that maximises entity-level F1 on validation gives no consistent gain over the pairwise
+threshold (better in \R{CE.entbestwins} variants for the cross-encoder).}
+\IfClaim{D}{A hard attribute veto becomes less precise as the matcher gets stronger (Spearman
+$\rho=\R{rho}$ over \R{npts} runs). With the cross-encoder, only \R{CE.vetoprec} of the accepted pairs it
+rejects are non-matches, so in most cases the veto undoes a correct merge.}{How precise a hard attribute
+veto is does not depend consistently on matcher quality ($\rho=\R{rho}$).}
+\IfClaim{F}{When the conflict signal is used to pick pairs for review instead of rejecting them, it adds
+\R{CE.awareunc} F1 over uncertainty-based selection at a \R{budget} budget.}{Using the conflict signal to
+pick pairs for review brings no gain over selecting them by calibrated uncertainty.}
+As a check on our protocol, the cross-encoder stays within \R{CE.paritybias} F1 of the published RoBERTa
+results on average.
 \end{abstract}
 
 \begin{IEEEkeywords}
-entity resolution, entity matching, product matching, clustering, calibration, blocking
+entity resolution, product matching, operating point, calibration, attribute constraints, human review
 \end{IEEEkeywords}
 
+% ======================================================================================================
 \section{Introduction}
-The same product appears in a catalogue many times: two sellers describe
-\texttt{Apple iPhone 15, 128GB, Black} and \texttt{iPhone 15 Apple 128 GB Midnight} as one item, while
-\texttt{Apple iPhone 15, 128GB} and \texttt{Apple iPhone 15 Plus 128GB} are two. The second pair is the
-hard one, because it is \emph{more} similar than the first.
 
-Most published matching systems are evaluated by pairwise precision, recall and F1 on a benchmark's
-candidate pairs \cite{peeters2024wdc,li2020ditto}. Production systems do not consume pairwise labels; they
-consume resolved entities. Those two objectives are not maximised at the same decision threshold, and the
-gap is invisible in standard reporting: one bridging false-positive edge merges two entire product
-families, and pairwise metrics charge it once.
+Online marketplaces receive the same product from many sellers, and each seller writes its own title.
+One may list \texttt{Apple iPhone 15, 128GB, Black}, another \texttt{iPhone 15 Apple 128 GB Midnight};
+both describe one phone. Compare \texttt{Apple iPhone 15, 128GB} with \texttt{Apple iPhone 15 Plus
+128GB}: these two share even more words, yet they are different models. Entity resolution (ER) has to join the
+first pair and keep the second apart.
 
-This paper measures that gap on a public benchmark, and reports what we tried in order to close it, including
-what did not work.
+Research on entity matching usually reports precision, recall and F1 over the candidate pairs released
+with a benchmark~\cite{peeters2024wdc,li2020ditto}. This is a fair way to compare matchers, but it is not
+what a catalogue experiences. Accepted pairs are merged transitively, so a single false link between two
+product families moves every offer of one family into the other, while pairwise F1 counts that mistake
+only once.
 
-\textbf{Contributions.}
-\begin{enumerate}
-\item We quantify the pairwise-to-entity operating-point mismatch on WDC Products: at the
-  pairwise-F1-optimal threshold, entity-level F1 is 0.108 versus 0.262 at the entity-optimal threshold, and
-  0.383 after a gated transitive-consistency cleanup at the \emph{unchanged} threshold (Table~\ref{tab:entity}).
-  The cleanup gain holds in 18 of 18 system-variant cells and shrinks the largest cluster from 14--68 offers
-  to 4--6 every time.
-\item We show that \emph{base-matcher quality dominates every post-hoc mechanism}. A fine-tuned
-  cross-encoder reaching parity with the published baseline (F1 0.7102 versus 0.7218) lifts entity-level
-  F1 from 0.240 to 0.629, i.e.\ $+0.39$ in 9/9 variants, against $+0.23$ for the best clustering mechanism
-  we built. Resolved-catalogue quality is bought at the matcher first, and repaired afterwards only at a
-  1.7$\times$ smaller return.
-\item We evaluate attribute- and specifier-constrained scoring across all nine benchmark variants and
-  report a failure \emph{with a mechanism}: veto precision falls from 0.749 on a weak feature model to a
-  mean of 0.281 (range 0.165--0.333) on the cross-encoder, where 171 of 239 blocked pairs per variant were
-  genuine matches. The constraint's apparent F1 gain is threshold slide --- AP is lower in 9/9 variants
-  (mean $-0.054$) and F1 at a shared operating point is lower in 9/9 (mean $-0.19$) --- so a hard
-  constraint is a crutch for weak matchers that actively harms strong ones, inverting our starting
-  hypothesis.
-\item We show that the same evidence pays as \emph{soft features} (AP $+0.019$ in 9/9 variants,
-  hard-negative false merges $-1.9$ points in 9/9) but not as a hard rule, and that raw similarity is
-  nowhere near calibrated (ECE 0.39 versus 0.027 for the cross-encoder), which is what makes selective
-  acceptance usable: calibrated bands beat the class base rate in 9/9 variants at 3--10\% workload.
-\item We report a robustness inversion that single-split evaluation hides: word co-occurrence beats a
-  structural feature model by 9--15 F1 points on seen products and loses to it by 14--16 points when every
-  test product is unseen, so the preferred matcher depends on which split you look at.
-\item We bound every downstream result with a catalog-wide blocking study (Table~\ref{tab:blocking}), and
-  release a reproducible pipeline whose tables and figures are generated from the experiment CSVs, so no
-  number in this paper was hand-copied from a log.
-\end{enumerate}
+Between the matcher's scores and the final catalogue, several decisions are taken that the matcher does
+not make itself. Someone has to pick the score above which offers are merged. Many pipelines also add
+hand-written rules that block a merge when the offers disagree on brand, variant, capacity or model
+number, because such rules are easy to audit. And when people can check only a fraction of the
+decisions, someone has to choose which pairs they see. We ask how each of these choices behaves as the
+underlying matcher gets better.
 
+We study them on WDC Products~\cite{peeters2024wdc}, whose nine variants differ in the share of
+difficult corner-case pairs and in the share of test products not seen during training, and on
+\R{nextra} benchmarks from the Magellan collection~\cite{konda2016magellan,mudgal2018deepmatcher}. We
+deliberately cover very different architectures, because a finding about thresholds or rules is only
+useful if it does not depend on one model. The eight matchers include string similarity, the benchmark's
+word co-occurrence baseline and gradient-boosted trees; a fine-tuned bi-encoder that embeds each offer
+separately~\cite{reimers2019sbert,song2020mpnet}; two fine-tuned cross-encoders, RoBERTa~\cite{liu2019roberta}
+and DeBERTa-v3~\cite{he2023debertav3}; and two zero-shot instruction-tuned LLMs from different
+families~\cite{qwen2025,abdin2024phi3}. Nothing is tuned on test data. Before running any experiment we
+wrote down how consistent across variants, and how significant, an effect must be before we report it as
+a finding.
+
+Our contributions are as follows.
+\begin{itemize}
+\item \IfClaim{B}{Choosing the threshold for entity-level F1 on validation, instead of for pairwise F1,
+  improves the resolved catalogue of the cross-encoder in \R{CE.entbestwins} variants (entity F1
+  \R{CE.entpw} to \R{CE.entbest}) while leaving the matcher unchanged.}{We compare pairwise and
+  entity-level operating points under a validation-only protocol. Selecting for entity F1 on validation
+  does not carry over to test reliably (\R{CE.entbestwins} variants for the cross-encoder), although a
+  better test threshold exists (oracle \R{CE.entoracle}).}
+\item \IfClaim{D}{A hard attribute veto loses precision as the matcher improves ($\rho=\R{rho}$,
+  \R{npts} runs). A rule that removes errors from a weak matcher mostly removes correct merges from a
+  strong one.}{We measure the precision of a hard attribute veto at each matcher's own threshold in
+  \R{npts} runs and see no consistent link to matcher quality ($\rho=\R{rho}$).}
+  \IfClaim{C}{With the cross-encoder it lowers AP by \R{CE.dapveto} (improved in \R{CE.dapvetowins}
+  variants, $p=\R{CE.dapvetop}$).}{}
+\item \IfClaim{F}{Conflicting attributes are more useful for directing review than for rejecting
+  pairs: ranking pairs by a conflict-aware error probability recovers \R{CE.awareunc} more F1 than
+  ranking by uncertainty at a \R{budget} budget.}{We test conflicting attributes as a signal for directing
+  review and find no gain over calibrated uncertainty (\R{CE.awareunc} F1 at a \R{budget} budget), so
+  uncertainty alone is enough to rank pairs for review.}
+\item All code is public. One notebook rebuilds every table and figure from the public benchmarks, and
+  our cross-encoder differs from the published RoBERTa numbers by \R{CE.paritybias} F1 on average over
+  the nine variants.
+\end{itemize}
+
+% ======================================================================================================
 \section{Related Work}
-\textbf{Matching.} Transformer-based matchers dominate recent results: Ditto serialises records for
-cross-encoder fine-tuning \cite{li2020ditto}, JointBERT adds an entity-identification objective \cite{peeters2021jointbert}, and
-supervised contrastive pre-training improves product matching \cite{peeters2022supcon}. Prompted and
-fine-tuned LLMs now match or beat fine-tuned PLMs with far less supervision and are more robust to unseen
-entities \cite{peeters2023llm,steiner2025finetune}, while AnyMatch reaches competitive quality with a
-small language model at a fraction of the inference cost \cite{zhang2024anymatch}. A controlled study finds
-cross-encoders consistently ahead of bi-encoders and generative matching not universally better
-\cite{zhang2026beyond}. Our contribution is not a new matcher; we use published baselines as the floor.
 
-\textbf{Blocking.} Pre-trained embeddings for blocking were analysed at scale by Zeakis et al.\
-\cite{zeakis2023embeddings}; learned LSH targets the same trade-off \cite{wang2024nlsh}. Blocking quality is
-increasingly recognised as a first-class object of study, including its biases \cite{moslemi2024blocking},
-which is the venue precedent for the evaluation in Section~\ref{sec:blocking}.
+\textbf{Matchers and benchmarks.} Since Ditto~\cite{li2020ditto} showed that a pre-trained language
+model fine-tuned on serialised record pairs beats earlier deep matchers, transformer cross-encoders have
+been the usual strong baseline. Later work added an auxiliary entity-identification
+objective~\cite{peeters2021jointbert} and contrastive pre-training on product
+offers~\cite{peeters2022supcon}. Large language models can now match products with few or no labelled
+pairs~\cite{peeters2023llm}; fine-tuning them improves both accuracy and transfer to unseen
+products~\cite{steiner2025finetune}, and small models come close at a fraction of the
+cost~\cite{zhang2024anymatch}. A controlled comparison still places cross-encoders ahead of
+bi-encoders~\cite{zhang2026beyond}. WDC Products~\cite{peeters2024wdc} is our main benchmark and the
+Magellan datasets~\cite{konda2016magellan,mudgal2018deepmatcher,kopcke2010evaluation} serve as a second
+family. We do not propose a matcher; the matcher is the variable we change.
 
-\textbf{Beyond the pair.} Multi-source work shows that a handful of false-positive edges corrupt large
-groups: GraLMatch cleans the pairwise graph with structural signals \cite{dmeer2025gralmatch} and
-TransClean removes false positives label-free via transitive consistency \cite{dmeer2025transclean}. Our
-cleanup is a gated reproduction of that idea, not a novelty claim. Clustering directly with LLMs
-\cite{fu2026llmcer} and budgeted graph label propagation \cite{wang2026alper} push the same frontier.
+\textbf{After matching.} Errors become more expensive once pairs are merged into groups. GraLMatch uses
+the structure of the match graph to find and remove wrong edges~\cite{dmeer2025gralmatch}, and TransClean
+does so without labels by testing whether matches are transitively consistent~\cite{dmeer2025transclean}.
+One of our candidate configurations is a gated variant of the TransClean idea, which we do not claim as
+new. Other recent work clusters records directly with LLMs~\cite{fu2026llmcer} or spreads a small label
+budget through the graph~\cite{wang2026alper}. Blocking limits recall before any of these steps
+run~\cite{zeakis2023embeddings,moslemi2024blocking}; we use the candidate pairs released with each
+benchmark so that our numbers stay comparable with earlier results.
 
-\textbf{Confidence.} Calibration in entity matching is barely developed: Kamsteeg et al.\ report mild
-overconfidence with ECE up to 0.055 and gains from temperature scaling \cite{kamsteeg2025calibration};
-decision-model matchers are well-calibrated only for the strongest models \cite{steiner2026decision}.
-We adopt that line and connect it to review workload.
+\textbf{Confidence and review.} Neither a similarity score nor a classifier output is automatically a
+probability. Platt scaling~\cite{platt1999probabilistic} and temperature scaling~\cite{guo2017calibration}
+are the standard post-hoc corrections. For entity matching, LLM-based matchers have been found to be
+somewhat overconfident~\cite{kamsteeg2025calibration}, and matchers built on decision models are well
+calibrated only when the underlying model is strong~\cite{steiner2026decision}. We use calibrated
+probabilities to choose pairs for review and ask whether attribute conflicts tell us anything that the
+probabilities do not.
 
+% ======================================================================================================
 \section{Method}
 \label{sec:method}
-\subsection{Pipeline}
-Records are normalised conservatively (de-accenting, separator and punctuation folding) deliberately
-\emph{without} aggressive stop-word removal, because the tokens that distinguish variants are exactly the
-ones a generic normaliser discards. Candidate pairs come from blocking (Section~\ref{sec:blocking}). A
-matcher scores each pair; scores are temperature-scaled on the validation split; a decision threshold is
-applied; accepted edges are clustered by union-find, optionally preceded by transitive-consistency cleanup.
 
-\subsection{Attribute and specifier constraints}
-Let $A(r)$ be the attributes stated by record $r$: brand, model family, variant, capacity, quantity, plus
-\emph{unit-qualified numeric specifiers} extracted as $\{\text{unit}: \text{values}\}$, e.g.\
-\texttt{mm}$\{50\}$, \texttt{f}$\{1.4\}$, \texttt{tb}$\{4\}$. Keying on the unit rather than the whole token
-makes comparison robust to spacing, slashes and word order, and lets model codes such as
-\texttt{st4000ne001} versus \texttt{st6000ne001} be compared without a catalogue of identifiers.
+\subsection{Setting}
+Each candidate pair $(r_i,r_j)$ receives a score $s_{ij}\in[0,1]$ from the matcher and has a gold label
+$y_{ij}\in\{0,1\}$. We merge all pairs with $s_{ij}\ge\tau$ and take the connected components as the
+resolved entities. To score them we use \emph{entity F1}: the pairwise F1 between the pairs implied by
+the predicted clusters and those implied by the gold clusters, computed over the records that occur in
+the evaluated split. A wrong link that joins two clusters is therefore charged for every pair it
+creates.
 
-A conflict set $C(r_i,r_j)$ collects attributes stated on both sides with different values, optionally also
-one-sided statements (asymmetric mode), with a waiver when one title's tokens are contained in the other.
-The score is then capped:
-\begin{equation}
-s'(r_i,r_j)=\min\big(s(r_i,r_j),\ \kappa\big)\quad\text{if } C(r_i,r_j)\neq\varnothing,
-\end{equation}
-with ceiling $\kappa$ tuned on validation. We cap rather than delete so that candidate-set sizes, and
-therefore Recall@K and every denominator, stay honest.
+\subsection{Calibration and operating points}
+Raw scores are turned into probabilities with Platt scaling fitted on validation,
+$p_{ij}=\sigma(a\,\mathrm{logit}(s_{ij})+b)$. We compare four ways of setting the operating point, all
+of which look only at validation data:
+(i)~$\tau_{\text{pw}}$ maximises pairwise F1, as most papers do;
+(ii)~$\tau_{\text{ent}}$ maximises entity F1;
+(iii)~$\tau_{\text{pw}}$ followed by gated transitive cleanup~\cite{dmeer2025transclean}: whenever a
+record is linked to two others that are not linked to each other, the weaker of its two links is removed
+if its calibrated probability is below a gate $\gamma\in\{0.4,0.6,0.8\}$, with $\gamma$ picked on
+validation;
+(iv)~the combination of $\tau$ and $\gamma$ that does best on validation.
+We also show an oracle that picks the threshold on test, as an upper bound only.
 
-\subsection{Operating point}
-Maximising F1 on validation is the standard rule and is the wrong rule for a constraint study: when a
-mechanism removes false positives, an F1-optimal threshold slides downward and reads comparable noise back
-in. All systems therefore use one precision-forward rule --- maximise precision subject to
-recall $\ge 0.5$, ties broken toward the \emph{strictest} threshold --- and, for constrained systems, we
-additionally report every result at the unconstrained baseline's threshold. Recording the rule name per row
-is what exposes the degenerate case in Section~\ref{sec:negative}.
+\subsection{Attribute conflicts}
+We reuse the constraint layer of our toolkit. For two offers, the conflict set $C_{ij}$ contains the
+attributes that identify a product, namely brand, model line, variant, storage capacity and pack
+quantity, whenever the two offers give different values for them. It also contains variant markers that appear in only one title, except when that title's tokens
+include all tokens of the other one, which we treat as a shortened title. Finally, it contains numbers
+with the same unit whose values disagree, such as \texttt{50mm} against \texttt{85mm}. A stricter version
+keeps only conflicts that both offers state explicitly.
 
-\subsection{Cleanup}
-For an open wedge $b \leftarrow a \rightarrow c$ with $b$,$c$ unlinked, the weaker bridging edge is a
-suspect false positive. We drop it \emph{only if} its score is below a gate $\gamma$; when both edges are
-confident the violation is more plausibly a missing edge than a false merge, and dropping anyway would
-destroy recall on a guess. Violations are detected per pass against one graph snapshot and applied
-synchronously, so the result does not depend on traversal order. $\gamma$ is reported as a sweep, not a
-constant.
+\emph{Hard veto.} Under the veto a pair is merged only if $s_{ij}\ge\tau_{\text{pw}}$ and
+$C_{ij}=\varnothing$. Besides F1 at this shared threshold, we report the veto's precision. It is computed
+over the pairs that the matcher accepts at $\tau_{\text{pw}}$ and the veto rejects, and gives the fraction
+of them that are in fact non-matches. Pairs the matcher already rejects are left out, because blocking
+them changes nothing. To see the effect on ranking, we cap the scores of conflicting pairs at $\kappa$,
+$s'_{ij}=\min(s_{ij},\kappa)$, choosing $\kappa$ by average precision (AP) on validation.
 
+\emph{Soft feature.} Rather than applying a fixed rule, a second calibrator receives the conflict
+indicators together with the score,
+$q_{ij}=\sigma(\mathbf{w}^\top[z_{ij},c^{f}_{ij},c^{s}_{ij},c^{f}_{ij}z_{ij},c^{s}_{ij}z_{ij}]+b)$, where
+$z_{ij}=\mathrm{logit}(s_{ij})$ and $c^{f}$, $c^{s}$ mark conflicts under the full and the stricter
+definition. It is fitted on validation and can therefore learn that some conflicts matter and others do
+not.
+
+\subsection{Review routing}
+Suppose a reviewer can check $k=\beta N$ of the $N$ test pairs, with $\beta\in\{\R{budgets}\}$, and fixes
+every decision they look at. Taking $d_{ij}=[s_{ij}\ge\tau_{\text{pw}}]$ as the automatic decision, the
+chance that it is wrong is $e_{ij}=d_{ij}(1-p_{ij})+(1-d_{ij})\,p_{ij}$. \emph{Uncertainty routing}
+gives the reviewer the $k$ pairs with the highest $e_{ij}$, and \emph{conflict-aware routing} does the
+same with $q_{ij}$ in place of $p_{ij}$. For comparison we also place accepted pairs that have a conflict
+at the front of the queue (\emph{conflict-first}) and select pairs at random.
+
+\subsection{Statistics}
+Every WDC variant is run with \R{nseeds} seeds. Each seed refits the matcher on its own \R{trainsub}
+sample of the training pairs, so the spread we report reflects the training data and not only random
+initialisation; results are averaged over seeds within a variant. We treat an effect as a finding when
+it has the expected sign in at least \R{minwins} WDC variants and a two-sided Wilcoxon signed-rank test
+over variants~\cite{wilcoxon1945} gives $p<\R{alpha}$. Individual runs come with 95\% intervals from a
+paired Poisson bootstrap over test pairs (\R{nboot} resamples). These thresholds were set in the
+experiment configuration before any result existed, and claims that miss them are reported as negative
+findings.
+
+% ======================================================================================================
 \section{Experimental Setup}
-\textbf{Data.} WDC Products \cite{peeters2024wdc}, pair-wise format, 11{,}715 offers describing 2{,}162
-products, with the benchmark's own splits: three corner-case levels (20/50/80\%), three unseen-product
-levels (0/50/100\%) and three development-set sizes. Headline setting: 80\% corner cases, 0\% unseen,
-medium development set (6{,}000 train / 3{,}500 valid / 4{,}500 test pairs, 500 positives, 3{,}000
-benchmark-flagged hard negatives). Two file-naming traps are documented in the release: the corner-case
-ratio is the filename \emph{prefix}, and \texttt{\_gs} files are the test splits.
 
-\textbf{Systems.} Table~\ref{tab:matching}: string similarity, a word co-occurrence + linear SVM baseline,
-a gradient-boosted classifier over our feature families with and without attribute features, a Sentence
-Transformer bi-encoder \cite{reimers2019sbert}, each optionally wrapped in the constraint layer.
+\textbf{Data.} Table~\ref{tab:table_datasets} summarises the benchmarks. For WDC
+Products~\cite{peeters2024wdc} we use the released pairs of the medium development set at 20, 50 and
+80\% corner cases, each evaluated on test sets with 0, 50 and 100\% unseen products. The benchmark also
+supplies gold product clusters and marks hard negatives. Abt-Buy, Amazon-Google~\cite{kopcke2010evaluation}
+and Walmart-Amazon~\cite{konda2016magellan} are used with the splits common in the DeepMatcher line of
+work~\cite{mudgal2018deepmatcher}. They have no gold clusters, so they enter only the pairwise analyses.
 
-\textbf{Protocol.} Fit on train, calibrate and choose the operating point on validation, evaluate on test.
-Threshold-free metrics (AP) are reported alongside threshold metrics because thresholds are not comparable
-across systems once each has its own temperature.
+\GenTable{table_datasets}{Dataset statistics}
 
-\textbf{Reproducibility.} Every result row carries a 16-hex-digit fingerprint of the record set; tables and
-figures are generated from the CSVs; 39 unit/integration tests guard the primitives, including row-count
-checks against the benchmark paper's own statistics table.
+\textbf{Matchers.} \emph{Token-set} scores a pair by normalised token-set string similarity.
+\emph{Word co-occurrence} marks the words that occur in both offers and trains a linear SVM with balanced
+class weights; it is the simple baseline of the WDC Products paper~\cite{peeters2024wdc}. \emph{GBDT} is
+histogram gradient boosting over string, token, numeric and attribute-agreement features. The
+\emph{bi-encoder} starts from the MPNet sentence encoder all-mpnet-base-v2~\cite{song2020mpnet,reimers2019sbert}
+and is fine-tuned on the same training pairs: each offer is mean-pooled on its own, and the match
+probability is a learned logistic function of the cosine similarity. The two \emph{cross-encoders},
+\R{cemodel}~\cite{liu2019roberta} and DeBERTa-v3-base~\cite{he2023debertav3}, read both offers together
+and are fine-tuned for \R{ceepochs} epochs with batch size 32, learning rate $2\times10^{-5}$ and inputs
+of up to 256 tokens. All three neural matchers serialise records field by field as in
+Ditto~\cite{li2020ditto} and use early stopping on a slice held out from the training split. RoBERTa is
+our primary strong matcher because published results exist for it on WDC Products; DeBERTa serves as an
+independent replication. The two \emph{LLMs}, \R{llmmodel}~\cite{qwen2025} and
+Phi-3.5-mini-instruct~\cite{abdin2024phi3}, are used without fine-tuning. Their score is
+$P(\text{Yes})/(P(\text{Yes})+P(\text{No}))$ from a single forward pass over the prompt ``Do the following
+two product offers refer to the same real-world product? Answer with Yes or No only.'', followed by both
+titles and brands.
 
+\textbf{Hardware.} All GPU work ran on one \R{gpu}. Training and scoring one cross-encoder took
+\R{CE.minutes} minutes on average, and the LLM needed \R{LLM.mspair} ms per pair.
+
+% ======================================================================================================
 \section{Results}
 
-\subsection{Protocol validation}
-Our word co-occurrence baseline reaches F1 51.52 against the benchmark paper's published 52.66 on the same
-split. Across all nine cells, evaluated at the SVM's own decision boundary, our reproduction tracks the
-published numbers with mean bias $-0.001$ and maximum absolute deviation 4.5 points --- unbiased, which is
-the load-bearing sanity check of the paper: it is what licenses comparison with published rows. Our reported
-F1 sits ~2.2 points \emph{below} published by construction, because the precision-forward operating rule of
-Section~\ref{sec:method} trades F1 for precision deliberately, not accidentally.
-The same check establishes that our feature classifier (36.90 on this cell) sits fifteen points below that
-simple baseline, so nothing here is claimed as state of the art; published fine-tuned transformers reach
-0.67--0.73 on this split \cite{peeters2024wdc}.
+\subsection{Matching quality and agreement with published results}
 
-\input{tables/table_matching}
+\GenTable{table_matching}{Matching quality}
 
-Zero-shot bi-encoder cosine (AP 0.218) is worse than token-set similarity (AP 0.271) here: over
-\texttt{title + description} the seller boilerplate dilutes the identity signal. It is not the Ditto number
-and must not be read as one.
+The eight matchers in Table~\ref{tab:table_matching} range from AP \R{TS.ap} for token-set similarity to
+\R{CE.ap} for the RoBERTa cross-encoder, with the bi-encoder at \R{BI.ap}, DeBERTa at \R{DB.ap} and the two
+LLMs at \R{LLM.ap} and \R{LLMb.ap}. This spread is what allows us to relate the behaviour of thresholds
+and rules to matcher quality. On the variant with 80\% corner cases and only seen products, the
+cross-encoder reaches F1 \R{CE.fonehalfeighty} at its own decision boundary, against
+\R{CE.pubeighty} published for RoBERTa-base~\cite{peeters2024wdc}. Over all nine variants our numbers
+differ from the published ones by \R{CE.paritybias} on average (at most \R{CE.paritymax}), and those of
+our word co-occurrence baseline by \R{WC.paritybias}. \IfClaim{P}{This is close enough to compare our
+results directly with the published tables.}{This gap is larger than the tolerance we set, so any
+comparison with published rows has to allow for it.} Neither LLM sees a single labelled pair. Calibration matters for the later sections: uncalibrated token-set scores
+have an ECE of \R{TS.eceraw}, and after Platt scaling on validation the ECE is \R{TS.ececal} for
+token-set and \R{CE.ececal} for the cross-encoder.
 
-\subsection{The constraint does not survive as a hard veto}
-\label{sec:negative}
-At the unconstrained baseline's own operating point, the constraint moves precision by $+0.5$ points and
-false positives by $-17$ of 437. Two claims we first made from a single cell did not survive the grid and are
-retracted here. Averaged over three seeds with 90\% training resamples, the full constraint on the feature
-model has no detectable AP effect (AP higher in 4 of 9 variants, mean $-0.002$, within a seed standard
-deviation of about 0.008), and on word co-occurrence the constraint does not reduce AP (mean $+0.011$,
-higher in 6 of 9). The typed veto alone is the exception: on the feature model it lowers AP in \emph{9 of 9}
-variants (mean $-0.021$, about $2.5\times$ the seed spread; Wilcoxon $p=0.004$), so the rule costs ranking
-quality even where the full constraint does not. It is not neutral-but-harmless either: at the \emph{entity} level it
-falls in every variant tested, 0.393\,$\rightarrow$\,0.054 at 20\%/0\% unseen, 0.405\,$\rightarrow$\,0.087 at
-50\%/0\% and 0.326\,$\rightarrow$\,0.135 at 80\%/0\%. The mechanism is structural. Capping costs recall,
-because many genuine matches also appear to conflict (one title is simply shorter). Every threshold that
-satisfies the recall floor therefore re-admits the pairs the veto had blocked, and the constraint cancels
-itself --- all constrained systems logged that no ceiling in $\{0.05,\dots,0.45\}$ binds at its operating
-point. The SBERT variant is the instructive failure: it flagged 3{,}321 of 4{,}500 test pairs (74\%), the
-operating point collapsed to ``accept everything'', and clustering produced one cluster containing all
-1{,}000 products (entity F1 0.002). A constraint that fires on three quarters of candidates is not a
-constraint.
-
-\IfFileExists{tables/table_seeds.tex}{\input{tables/table_seeds}}{}
-
-The diagnostic that makes this legible is \emph{veto precision}: among effectively blocked pairs, 62--75\%
-were correctly blocked, i.e.\ between 24 and 184 genuine matches were destroyed per configuration. The most active rule
-is also the weakest: one-sided variant absence fires 1{,}398 times, mostly detecting truncation rather than
-difference of product. Symmetric-only firing (stated versus stated) is 4$\times$ rarer and correspondingly
-less destructive. Attribute evidence does pay for itself as \emph{soft features}, and this is the one
-scoring-stage claim that survives the grid: average precision improves in \emph{9 of 9} variants (mean
-+0.019), and the false-merge rate on the benchmark's own hard negatives falls in \emph{9 of 9} (mean
-$-1.9$ points). Same information, used as a feature the model can weigh rather than as a rule it cannot
-overrule --- the distinction the original hypothesis did not anticipate.
-
-\subsection{Entity resolution is where the effect is}
+\subsection{Choosing the operating point for entities}
 \label{sec:entity}
-\input{tables/table_entity}
 
-Table~\ref{tab:entity} is the headline. At the threshold that maximises pairwise F1, union-find over the
-accepted edges yields entity-level pairwise F1 of 0.108 with a single 50-offer cluster; the entity-optimal
-threshold lifts it by 2.4x to 0.262; and the gated cleanup reaches 0.383 at the \emph{unchanged} threshold while
-shrinking the largest cluster to 4. The gate earns its place: with the gate disabled, cleanup discards
-almost every violable edge and the resulting entity F1 is an artefact, which we found by reading our own
-numbers sceptically.
+\GenTable{table_entity}{Entity-level F1}
 
-Cleanup buys precision with recall --- 0.491 versus 0.314 at $\gamma=0.8$, having reduced 1{,}080 accepted
-edges to 315 --- and it is a reproduction of published ideas \cite{dmeer2025transclean,dmeer2025gralmatch},
-not a novelty claim. Its value here is diagnostic: it makes the operating-point cost measurable.
+Table~\ref{tab:table_entity} gives entity F1 under the four ways of setting the operating point.
+\IfClaim{B}{Choosing the threshold and the cleanup gate for entity F1 on validation improves the
+cross-encoder from \R{CE.entpw} to \R{CE.entbest}, with a gain in \R{CE.entbestwins} variants
+($p=\R{CE.entbestp}$). For GBDT, entity F1 rises from \R{GB.entpw} to \R{GB.entbest}
+(\R{GB.entbestwins} variants), and its largest cluster shrinks on average from \R{GB.maxclpw} to
+\R{GB.maxclbest} offers; most of the gain therefore comes from fewer chains of wrong links between
+unrelated products. The method needs no labels beyond the validation split that the protocol uses
+anyway.}{Tuning the threshold for entity F1 on validation does not reliably help on test. The
+cross-encoder gains in only \R{CE.entbestwins} variants ($p=\R{CE.entbestp}$; entity F1 \R{CE.entpw}
+to \R{CE.entbest}). The test-tuned oracle (\R{CE.entoracle}) shows that a better threshold exists, but
+the validation split is too small to locate it with confidence. We read this as a warning against tuning
+entity-level settings on small development sets.} The oracle column indicates how much room each
+matcher leaves; for GBDT it reaches \R{GB.entoracle}, against \R{GB.entpw} at the pairwise threshold.
 
-\subsection{A strong base matcher inverts the conclusion}
-\label{sec:strongbase}
-All results above use a lightweight matcher, so a reviewer may reasonably ask whether the constraint fails
-because the matcher is weak. We therefore fine-tuned a cross-encoder (RoBERTa-base, Ditto-style field
-serialisation, 8 epochs / 1{,}320 steps) and ran both systems, with and without the constraint, across all
-nine variants. At 80\%/0\% it reaches F1 \textbf{0.7102} at its F1-optimal threshold against the
-benchmark's published \textbf{0.7218} for the same architecture --- parity, so this is a fair test rather
-than a straw man. Table~\ref{tab:strongbase} reports every variant.
+\subsection{Hard constraints and matcher quality}
+\label{sec:veto}
 
-\IfFileExists{tables/table_strongbase.tex}{\input{tables/table_strongbase}}{}
+\GenTable{table_constraint}{Hard veto vs.\ soft conflict feature}
+\GenFig{figure}{fig_veto_vs_quality}{\columnwidth}{Precision of the hard veto at each matcher's own
+threshold, plotted against the matcher's test AP. Each point is one matcher, variant and seed; marker
+shapes distinguish the benchmarks. Below 0.5 the veto rejects more true matches than
+non-matches.}{fig:veto}
 
-\textbf{Base quality dominates, but cleanup is not negligible.} Entity-level F1 rises from 0.240
-(feature-based matcher) to \textbf{0.629} (cross-encoder): $+0.389$, in 9/9 variants. The best clustering
-mechanism we built adds $+0.230$ to the weak matcher, also in 9/9. Matching quality is therefore worth
-$1.7\times$ the mechanism --- not the order of magnitude an earlier single-cell reading suggested, which
-the grid corrected. The operational reading stands: buy matching quality first, then repair, and expect
-repair to matter most where matching is weakest.
+\IfClaim{D}{Fig.~\ref{fig:veto} shows the main pattern: the stronger the matcher, the less precise the
+veto (Spearman $\rho=\R{rho}$, $p=\R{rhop}$, $n=\R{npts}$). Of the accepted pairs that the veto would
+reject, \R{TS.vetoprec} are non-matches for token-set similarity, \R{GB.vetoprec} for GBDT,
+\R{BI.vetoprec} for the bi-encoder, and only \R{CE.vetoprec} and \R{DB.vetoprec} for the RoBERTa and
+DeBERTa cross-encoders. A strong matcher has already turned down most pairs whose
+attributes really differ. What is left for a rule to overrule are mostly true matches whose offers
+describe the product in different words, for example through a shortened title or a seller's own naming.
+The Magellan benchmarks give the same picture (cross-encoder veto precision
+\R{CE.genvetoprec}).}{Fig.~\ref{fig:veto} shows no consistent link between how strong a matcher is and
+how precise the veto is ($\rho=\R{rho}$, $p=\R{rhop}$). Veto precision is \R{TS.vetoprec},
+\R{GB.vetoprec} and \R{CE.vetoprec} for token-set, GBDT and the cross-encoder.}
+\IfClaim{C}{On the cross-encoder the veto reduces AP by \R{CE.dapveto} ($p=\R{CE.dapvetop}$) and F1 at
+the shared threshold by \R{CE.dfoneshared}, blocking \R{CE.trueblocked} true matches per variant.}{Its
+effect on the cross-encoder's AP (\R{CE.dapveto}; improved in \R{CE.dapvetowins} variants,
+$p=\R{CE.dapvetop}$) is not consistent across the grid.}
+If the veto only uses conflicts that both offers state, its precision on the cross-encoder becomes
+\R{CE.vetoprecsym}, and AP changes by \R{CE.dapsym}.
 
-\textbf{The constraint's apparent gain is threshold slide.} Constrained scoring reports a higher F1 in most
-variants, sometimes by more than ten points. It is not an improvement. Capping pushes conflicting pairs to
-the ceiling; the recall floor then drags the operating point down and buys recall with precision. At a
-\emph{shared} operating point the constrained system is worse in \textbf{9/9} variants, by 0.08 to 0.26
-F1, and the threshold-free measure agrees in \textbf{9/9} (AP mean $-0.054$). Entity-level F1 is worse in
-7/9 (mean $-0.028$); it improves in two, which we report rather than average away. A result that reverses
-under a threshold change is an artefact of the decision rule --- the third time in this study that the same
-artefact hid a real effect.
+\IfClaim{E}{Given to a calibrator as features, the same conflicts help rather than hurt: AP changes by
+\R{GB.dapsoft} for GBDT (\R{GB.dapsoftwins} variants) and by \R{CE.dapsoft} for the cross-encoder
+(\R{CE.dapsoftwins}). Because its weights are learned, the calibrator can discount conflicts that turn
+out not to matter, which a fixed rule cannot do.}{Given to a calibrator as features, the conflicts change
+AP by \R{GB.dapsoft} for GBDT (\R{GB.dapsoftwins} variants) and by \R{CE.dapsoft} for the cross-encoder
+(\R{CE.dapsoftwins}). They add little ranking information beyond what the matchers already capture.}
 
-\textbf{Veto precision collapses as matcher quality rises: 0.749 $\rightarrow$ 0.281.} On the weak matcher
-the veto mostly blocked pairs that were wrong anyway, so it looked precise. On the cross-encoder,
-\textbf{171 of 239} blocked pairs per variant were \emph{genuine matches} --- 72\%. The mechanism is
-obvious in hindsight: a strong matcher's surviving candidates are mostly correct, so a rule that fires on
-textual disagreement can only subtract value. The constraint is a crutch for weak matchers that harms
-strong ones --- a sharper and more generalisable claim than our original hypothesis, and one that no paper
-in our survey makes.
+\subsection{Conflict-aware review routing}
+\label{sec:review}
 
+\GenFig{figure*}{fig_review}{0.85\textwidth}{F1 gained over no review as a function of the share of test
+pairs a reviewer corrects (WDC Products; mean and standard deviation over variants).}{fig:review}
+\GenTable{table_review}{Review routing}
 
-\label{sec:variants}
-\input{tables/table_cross_variant}
+Once probabilities are calibrated, spending a \R{budget} review budget on the most uncertain decisions
+adds \R{CE.revunc} F1 for the cross-encoder and \R{GB.revunc} for GBDT, whereas random selection adds
+\R{CE.revrandom} and \R{GB.revrandom} (Fig.~\ref{fig:review}).
+\IfClaim{F}{Including the conflicts in the routing model helps further, by \R{CE.awareunc} F1 for the
+cross-encoder (\R{CE.awareuncwins} variants, $p=\R{CE.awareuncp}$) and \R{GB.awareunc} for GBDT. The
+conflict signal thus changes role. As an automatic veto it hurts a strong matcher, but as a reason to
+show a pair to a person it is useful, since a reviewer can tell a real conflict from a naming difference
+and a rule cannot. The effect also appears on the Magellan benchmarks for the cross-encoder
+(\R{CE.genawareunc}, positive in \R{CE.genawarewins} datasets).}{Including the conflicts in the routing
+model does not improve on uncertainty routing (cross-encoder \R{CE.awareunc}, \R{CE.awareuncwins}
+variants, $p=\R{CE.awareuncp}$). After calibration, the conflicts carry no extra information about which
+decisions are wrong.} \IfClaim{R}{The DeBERTa cross-encoder leads to the same conclusions as RoBERTa
+for both the veto (AP \R{DB.dapveto}) and review routing (\R{DB.awareunc} F1).}{The DeBERTa
+cross-encoder does not fully agree with RoBERTa (veto AP \R{DB.dapveto}, review routing \R{DB.awareunc}
+F1), so these two findings should be read as specific to the primary matcher.}
+Table~\ref{tab:table_review} also reports conflict-first routing, which is the most direct way of
+turning the veto into a review trigger.
 
-Table~\ref{tab:cross} reports every variant measured so far. The two columns are the point of the figure:
-for the same matcher, pair F1 and entity F1 are not close, and the distance between them changes with the
-corner-case and unseen-product levels, and it surfaces an inversion that single-split evaluation cannot see.
-Word co-occurrence is clearly the better matcher on seen products (0.515/0.533/0.548 at 80\%/50\%/20\%
-corner cases) yet degrades steeply as unseen products enter the test split, reaching 0.273/0.281/0.320 at
-100\% unseen. The structural feature model starts 9--15 points behind and ends 14--16 points \emph{ahead}
-(0.369\,$\rightarrow$\,0.414, 0.447\,$\rightarrow$\,0.438, 0.455\,$\rightarrow$\,0.472). A
-bag-of-words co-occurrence model leans on product-specific vocabulary that unseen offers do not reuse, while
-normalised similarity and attribute agreement transfer. Choosing a matcher on one split therefore selects
-the wrong one for the regime the benchmark paper itself identifies as hardest \cite{peeters2024wdc}. The
-fine-tuned cross-encoder goes further still: across the same unseen axis it loses only \textbf{1.2 F1
-points} on average, against 24 for word co-occurrence, so the fragility is a property of the lexical
-baseline rather than of the task (Section~\ref{sec:strongbase}). The entity-level cleanup result is
-unaffected: it improves in all 18 system-variant cells.
+\subsection{Generalisation and robustness}
 
-\subsection{Blocking bounds everything above it}
-\label{sec:blocking}
-\input{tables/table_blocking}
+\GenTable{table_generalisation}{Generalisation to the Magellan benchmarks}
+\GenTable{table_robustness}{Robustness to unseen products}
 
-Defining gold catalog-wide (24{,}019 intra-cluster pairs among 6{,}056 offers; all-pairs = 18{,}334{,}540),
-token blocking preserves 99.6\% of gold pairs at 2.9M comparisons and only 68.1\% at 206k. No matcher can
-recover what blocking discards, which is why recall must be reported per stage. Sorted-neighbourhood
-blocking is the weakest method tested (TPR 0.07--0.09): keying on the rarest token splits product families
-across the sort order.
+Table~\ref{tab:table_generalisation} repeats the pairwise analyses on the Magellan benchmarks. There the
+cross-encoder reaches AP \R{CE.genap}; the veto changes its AP by \R{CE.gendapveto} and the soft
+calibrator by \R{CE.gendapsoft}. Table~\ref{tab:table_robustness} shows how F1 changes when the test
+products were not seen in training. Going from seen to unseen products, the cross-encoder loses
+\R{CE.unseendrop} F1, the LLM \R{LLM.unseendrop} and word co-occurrence \R{WC.unseendrop}. WDC
+Products was designed to expose this kind of drop~\cite{peeters2024wdc}.
 
-\subsection{Calibration}
-\label{sec:calibration}
-\begin{figure}[t]
-\centering
-\includegraphics[width=\columnwidth]{fig_reliability}
-\caption{Reliability of the constrained classifier's match probabilities after temperature scaling on
-validation. Raw string-similarity scores in the same protocol reach ECE 0.39, versus 0.07 for this
-matcher.}
-\label{fig:reliability}
-\end{figure}
+% ======================================================================================================
+\section{Discussion}
 
-A similarity score is not a probability: token-set and Jaro-Winkler scores reach ECE 0.391 and 0.395,
-whereas the trained matchers after temperature scaling sit at 0.067--0.115 (Table~\ref{tab:matching}), and
-the constraint layer improves calibration rather than harming it. This is the empirical basis for selective
-acceptance, and the band is worth measuring rather than assuming. Defining it as the interval immediately
-below the operating point, the test-set base rate is 0.111, so a band whose precision sits at or below that
-value is not worth any reviewer's time. For word co-occurrence the band covers 3.0\% of pairs at yield 0.287
-(2.6$\times$ base) and recovers 39 missed positives; for the GBDT matchers, 7.6--9.5\% of pairs at yield
-0.199--0.221 (1.8--2.0$\times$). Across the grid the trained matchers beat the base rate in 9 of 9 variants;
-raw similarity does not produce an \emph{inverted} band as we first supposed (it exceeds base in 6 of 9),
-but its band averages 32.7\% of all pairs at only 1.15$\times$ base --- a workload no reviewer would accept
-for a gain indistinguishable from picking pairs at random. Calibration is therefore the property that makes
-abstention worth invoking at all, in workload terms rather than sign terms, and that is the substantive
-content of our confidence-aware claim.
+\textbf{Practical advice.} Three recommendations follow from our results. First,
+\IfClaim{B}{set the threshold for the output that is actually used; tuning it for entity F1 on
+validation costs nothing extra.}{if entity quality matters, check the entity-level metric on validation,
+but expect the choice to be noisy when the development set is small.} Second, \IfClaim{D}{be careful with
+hard attribute rules on top of a strong matcher, because their precision drops as the matcher
+improves.}{measure a hard rule's precision at the threshold that will actually be deployed before
+adopting it.} Third, choose pairs for review by their calibrated error
+probability\IfClaim{F}{, and include attribute conflicts in that model.}{.}
 
-\section{Limitations}
-Single benchmark family; English-language schema.org offers from 2020. The base matcher is deliberately
-not state of the art, so constraint effects are measured on a weak floor --- we report the word
-co-occurrence variant for exactly that reason. No fine-tuned cross-encoder and no LLM matcher in the loop.
-The attribute extractor is rule-based with a domain-neutral lexicon; a per-category lexicon would change
-the numbers. Cleanup is a reproduction. Every number is a single seed; confidence intervals are future
-work. We do not claim novelty for transitive consistency, and we withdrew an initially promising but
-incorrect cleanup result after finding that the gate was a no-op. Multimodal matching is not evaluated at
-all: our dataset audit found no 2023--2026 product-matching benchmark with images whose licence permits
-publication, so we treat it as blocked on data rather than as an untested hypothesis.
+\textbf{Threats to validity.} Our reviewer is simulated and always returns the gold answer; real
+reviewers make mistakes, and some pairs take longer to check than others. Both LLMs are used zero-shot
+with a single prompt. Better prompts or fine-tuning~\cite{steiner2025finetune} would make them stronger
+and, if the pattern in Section~\ref{sec:veto} holds, would also make the veto less precise for them. Entity-level
+results come from WDC Products alone, because the Magellan benchmarks contain no gold clusters. The
+attribute extractor relies on rules and a general lexicon rather than one tailored to each product
+category. Finally, we evaluate on the candidate pairs released with each benchmark, which places blocking
+outside the scope of this study.
 
+% ======================================================================================================
 \section{Conclusion}
-Report pairwise F1 and you may be shipping a catalogue in which 50 unrelated offers collapse into one
-product. The objective that matters is reached by choosing the threshold for that objective, by keeping
-base-matcher quality first, and by treating the clustering stage as a measured part of the system. Hard
-attribute constraints, whatever their intuitive appeal, did not earn their place at a fixed operating point;
-the same evidence as features did. Future work: a competitive fine-tuned base matcher, confidence intervals
-across all nine benchmark variants, precision-at-recall curves in place of single operating points, and a
-licence-clean multimodal dataset.
+
+We studied what happens between a matcher's pair scores and the resolved catalogue, using eight matchers
+from four architecture families on WDC Products and \R{nextra} Magellan benchmarks. \IfClaim{B}{Tuning the operating point for entities
+on validation improved the merged result.}{The pairwise operating point proved hard to beat with
+validation data alone.} \IfClaim{D}{A hard attribute veto lost precision as the matcher it was meant to
+protect became better,}{The value of a hard attribute veto did not follow matcher quality,} and
+\IfClaim{F}{the same conflict evidence was most useful for deciding which pairs a person should
+check.}{calibrated uncertainty was enough to decide which pairs a person should check.} Every number in
+this paper can be regenerated from public data with a single notebook.
+
+\section*{Data and Code Availability}
+Code, the experiment notebook and all per-pair scores: \url{https://github.com/Vikramsrini/MajorProject}.
+WDC Products: \url{https://webdatacommons.org/largescaleproductcorpus/wdc-products/}.
+
+\section*{Acknowledgment}
+% IEEE policy: the use of AI-generated content (text, code, figures, images) must be disclosed here.
+% Edit the second sentence so that it states accurately what was AI-assisted; do not delete it.
+[Thank your guide, department and any compute support here.]
+{\color{red}[Required AI-use disclosure, edit before submission:]} Parts of the experiment code and early
+drafts of this manuscript were prepared with the help of an AI assistant (Claude, Anthropic). The authors
+reviewed, tested and revised all code and text and take full responsibility for the content.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}

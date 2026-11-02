@@ -1,5 +1,8 @@
 # Handoff: where the project stands
 
+> **Superseded for current status by [`PROGRESS.md`](../PROGRESS.md)** (v2 notebook and paper, 2 Nov 2026).
+> This file describes the earlier v1 pipeline and is kept for history.
+
 Start here. This file is the single entry point for picking up the work. Last updated 2 Nov 2026.
 
 ## 1. The goal
