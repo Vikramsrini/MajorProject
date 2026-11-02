@@ -85,8 +85,9 @@ sequences — reduce `max_len` to 160 (the median description is 32 words) or sw
 1. Push the repo to GitHub (or upload a zip) and open
    `notebooks/finetune_wdc_colab.ipynb`.
 2. Set `GITHUB_URL` (or `ZIP_PATH`) in cell 1.
-3. Configure: `MODEL="roberta-base"`, `EPOCHS=3`, `MAX_STEPS=None`,
-   `SUFFIX="_ce_roberta-base"`.
+3. Configure: `MODEL="roberta-base"`, `EPOCHS=8`, `MAX_STEPS=None`,
+   `SEEDS="0,1,2"`, `TRAIN_SUBSAMPLE=0.9`, `SUFFIX="_ce_roberta-e8_seed"`.
+   (Current settings; `docs/HANDOFF.md` has the status. The per-variant time figures below are for 3 epochs.)
 4. **Run the smoke test cell.** It trains 20 steps on a tiny random RoBERTa. It cannot
    produce a meaningful score — constant probabilities are the correct outcome — it exists to
    prove serialisation, tokenisation, the training loop and CSV writing work on that machine.

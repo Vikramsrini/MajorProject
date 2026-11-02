@@ -134,9 +134,11 @@ small only in the smoke test.
 code(
     """
 MODEL   = "roberta-base"      # or "distilroberta-base"
-EPOCHS  = 3
+EPOCHS  = 8
 MAX_STEPS = None              # None = full training; small int ONLY for smoke tests
-SUFFIX  = "_ce_roberta-base"  # keeps GPU rows out of the CPU result files
+SEEDS   = "0,1,2"
+TRAIN_SUBSAMPLE = 0.9         # resample 90% of training pairs per seed
+SUFFIX  = "_ce_roberta-e8_seed"  # keeps GPU rows out of the CPU result files
 
 # All nine variants. Start with one (below) to confirm the numbers are sane, then run all.
 VARIANTS = [(80, 0), (80, 50), (80, 100), (50, 0), (50, 50), (50, 100), (20, 0), (20, 50), (20, 100)]
@@ -240,6 +242,7 @@ def run_variant(corner: int, unseen: int, force: bool = False):
         "--with-crossencoder", "--only-systems",
         "s8_crossencoder,s9_crossencoder_constraint",
         "--model", MODEL, "--epochs", str(EPOCHS),
+        "--seeds", SEEDS, "--train-subsample", str(TRAIN_SUBSAMPLE),
         "--tag-suffix", SUFFIX, "--out", "results",
     ]
     if MAX_STEPS:
