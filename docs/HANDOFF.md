@@ -24,6 +24,7 @@ The paper's current claim is a negative result with a mechanism. A hard attribut
 | Paper draft `paper/main.tex` | drafted, over 6 pages | needs cut and read-through |
 | Tables and figures | generated from results | `scripts/make_tables.py`, `scripts/make_figures.py` |
 | Notebook for Kaggle GPU runs | regenerated with seed settings | `scripts/make_notebook.py` → `notebooks/finetune_wdc_colab.ipynb` |
+| Zeroth-review deck, revised to the measured results | done | `deck/update_review_deck.py` → `deck/Zeroth_Review_Entity_Resolution_v2.pptx` |
 
 ## 3. Key results so far
 

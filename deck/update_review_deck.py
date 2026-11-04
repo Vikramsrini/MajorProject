@@ -196,6 +196,7 @@ def slide8(x: str) -> str:
         x, "Text 14",
         ["Sentence-BERT embeddings; fine-tuned RoBERTa cross-encoder"],
     )
+    x = set_runs(x, "Text 25", ["Attribute matching"])
     return set_runs(x, "Text 26", ["Attribute-aware scoring with calibration"])
 
 
@@ -219,7 +220,7 @@ def slide10(x: str) -> str:
          "Pre-trained language model at published-baseline parity", "Core research"],
         ["FAISS", "Top-K candidate generation",
          "Efficient nearest-neighbour search at scale", "Core research"],
-        ["scikit-learn GBDT", "Gradient-boosted matcher on attribute features",
+        ["scikit-learn GBDT", "Gradient-boosted attribute matcher",
          "Strong, interpretable tabular baseline", "Core research"],
         ["Python", "Primary development language",
          "Ecosystem for ML, data processing, evaluation", "Implementation"],
@@ -305,7 +306,7 @@ def slide12(x: str) -> str:
     x = set_runs(x, "Text 15", ["Hard attribute constraint lowers ranking"])
     x = set_runs(
         x, "Text 16",
-        ["AP lower 9/9; veto precision 0.281, so most blocked pairs were genuine."],
+        ["AP lower 9/9; veto precision 0.281 — most blocks were genuine."],
     )
 
     # row 4 - supported
@@ -321,7 +322,7 @@ def slide12(x: str) -> str:
     x = set_runs(x, "Text 23", ["Seed robustness partly established"])
     x = set_runs(
         x, "Text 24",
-        ["80%/0% confirmed on 3 seeds; the other 8 variants are still single-seed."],
+        ["3 seeds at 80%/0%; the other 8 variants are single-seed."],
     )
 
     x = set_runs(x, "Text 26", ["Status and next steps"])
@@ -364,7 +365,7 @@ def slide13(x: str) -> str:
         [
             "Hard constraint vs the same evidence as soft features",
             "Typed veto vs the full constraint",
-            "3 seeds x 90% training resample",
+            "3 seeds × 90% training resample",
             "Own-threshold vs shared-threshold F1",
         ],
     )
